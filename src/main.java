@@ -14,7 +14,7 @@ public class main {
      */
     public static void main(String[] args) {
         System.out.println("=========================================");
-        System.out.println("Simulador de Planificación de Procesos");
+        System.out.println("Simulador de Planificacion de Procesos");
         System.out.println("Sistemas Operativos - Proyecto Universitario");
         System.out.println("=========================================");
         

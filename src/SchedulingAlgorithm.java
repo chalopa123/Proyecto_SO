@@ -13,5 +13,6 @@ public enum SchedulingAlgorithm {
     RR,     // Round Robin
     PRIORITY,
     SRTF,   // Shortest Remaining Time First
-    MLFQ    // Multi-Level Feedback Queue
+    MLFQ,
+    HRRN    // Multi-Level Feedback Queue
 }
