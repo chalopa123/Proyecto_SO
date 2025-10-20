@@ -33,7 +33,7 @@ public class IOExceptionThread extends Thread {
         try {
             // Simular el tiempo que toma la operación de E/S
             for (int i = 0; i < completionCycles && running; i++) {
-                Thread.sleep(500); // Simular tiempo de E/S
+                Thread.sleep(500); // NOSONAR: Sleep en loop es necesario para simular E/S
                 
                 // Actualizar progreso de la operación de E/S
                 process.setMAR(process.getMAR() + 1); // Simular progreso

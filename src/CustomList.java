@@ -10,6 +10,7 @@
 /**
  * Implementación personalizada de una lista para reemplazar ArrayList
  * Cumple con los requerimientos de no usar librerías de estructuras de datos
+ * @param <T> el tipo de elementos en esta lista
  */
 public class CustomList<T> {
     private Object[] elements;
@@ -26,6 +27,10 @@ public class CustomList<T> {
         this.size = 0;
     }
     
+    /**
+     * Agrega un elemento a la lista
+     * @param element el elemento a agregar
+     */
     public void add(T element) {
         ensureCapacity();
         elements[size++] = element;
@@ -39,9 +44,14 @@ public class CustomList<T> {
         return (T) elements[index];
     }
     
+    /**
+     * Elimina un elemento específico de la lista
+     * @param element el elemento a eliminar
+     * @return true si se eliminó, false en caso contrario
+     */
     public boolean remove(T element) {
         for (int i = 0; i < size; i++) {
-            if (elements[i].equals(element)) {
+            if (elements[i] != null && elements[i].equals(element)) {
                 removeAt(i);
                 return true;
             }

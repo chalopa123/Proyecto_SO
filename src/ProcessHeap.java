@@ -17,7 +17,7 @@ public class ProcessHeap {
     private PCB[] heap;
     private int size;
     private final boolean isMinHeap;
-    private SchedulingAlgorithm algorithm;
+    private final SchedulingAlgorithm algorithm;
     
     public ProcessHeap(int capacity, boolean isMinHeap, SchedulingAlgorithm algorithm) {
         this.heap = new PCB[capacity];
@@ -40,6 +40,7 @@ public class ProcessHeap {
     
     /**
      * Inserta un proceso en el montículo
+     * @param process el proceso a insertar
      */
     public void insert(PCB process) {
         if (size == heap.length) {
@@ -53,6 +54,7 @@ public class ProcessHeap {
     
     /**
      * Extrae el proceso con mayor/menor prioridad según el tipo de montículo
+     * @return el proceso extraído o null si está vacío
      */
     public PCB extract() {
         if (isEmpty()) {
@@ -70,6 +72,7 @@ public class ProcessHeap {
     
     /**
      * Obtiene el proceso en la raíz sin extraerlo
+     * @return el proceso en la raíz o null si está vacío
      */
     public PCB peek() {
         if (isEmpty()) {
@@ -80,10 +83,12 @@ public class ProcessHeap {
     
     /**
      * Elimina un proceso específico del montículo
+     * @param process el proceso a eliminar
+     * @return true si se eliminó, false en caso contrario
      */
     public boolean remove(PCB process) {
         for (int i = 0; i < size; i++) {
-            if (heap[i].getId() == process.getId()) {
+            if (heap[i] != null && heap[i].getId() == process.getId()) {
                 heap[i] = heap[size - 1];
                 heap[size - 1] = null;
                 size--;
@@ -133,31 +138,19 @@ public class ProcessHeap {
      * Compara dos procesos según el algoritmo de planificación
      */
     private int compare(PCB p1, PCB p2) {
-        int result = 0;
+        if (p1 == null || p2 == null) return 0;
         
-        switch (algorithm) {
-            case FCFS:
-                result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
-                break;
-            case SJF:
-            case SRTF:
-                result = Integer.compare(p1.getRemainingInstructions(), p2.getRemainingInstructions());
-                break;
-            case RR:
-                // Para RR, usamos FCFS como base
-                result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
-                break;
-            case PRIORITY:
-                // Prioridad basada en el tipo de proceso
+        int result = switch (algorithm) {
+            case FCFS -> Long.compare(p1.getCreationTime(), p2.getCreationTime());
+            case SJF, SRTF -> Integer.compare(p1.getRemainingInstructions(), p2.getRemainingInstructions());
+            case RR -> Long.compare(p1.getCreationTime(), p2.getCreationTime());
+            case PRIORITY -> {
                 int p1Priority = (p1.getType() == ProcessType.IO_BOUND) ? 1 : 2;
                 int p2Priority = (p2.getType() == ProcessType.IO_BOUND) ? 1 : 2;
-                result = Integer.compare(p1Priority, p2Priority);
-                break;
-            case MLFQ:
-                // Implementación simplificada de MLFQ
-                result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
-                break;
-        }
+                yield Integer.compare(p1Priority, p2Priority);
+            }
+            case MLFQ -> Long.compare(p1.getCreationTime(), p2.getCreationTime());
+        };
         
         return isMinHeap ? result : -result;
     }

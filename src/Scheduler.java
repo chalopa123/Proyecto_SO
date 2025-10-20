@@ -16,9 +16,9 @@ import java.util.concurrent.Semaphore;
  */
 public class Scheduler {
     private ProcessHeap readyQueue;
-    private CustomList<PCB> blockedQueue;
-    private CustomList<PCB> suspendedQueue;
-    private CustomList<PCB> terminatedProcesses;
+    private final CustomList<PCB> blockedQueue;
+    private final CustomList<PCB> suspendedQueue;
+    private final CustomList<PCB> terminatedProcesses;
     private PCB currentProcess;
     private SchedulingAlgorithm currentAlgorithm;
     private int timeQuantum;
@@ -28,14 +28,14 @@ public class Scheduler {
     private final Semaphore mutex;
     
     // Hilo para manejo de excepciones de E/S
-    private ExceptionHandlerThread exceptionHandler;
+    private final ExceptionHandlerThread exceptionHandler;
     
     // Métricas de rendimiento
     private int completedProcesses;
     private long totalCpuBusyTime;
     private long totalWaitTime;
     private long totalResponseTime;
-    private long startTime;
+    private final long startTime;
     
     public Scheduler() {
         this.readyQueue = new ProcessHeap(100, SchedulingAlgorithm.FCFS);
@@ -51,15 +51,25 @@ public class Scheduler {
         
         // Inicializar manejador de excepciones
         this.exceptionHandler = new ExceptionHandlerThread(this);
-        this.exceptionHandler.start();
         
         this.completedProcesses = 0;
         this.totalCpuBusyTime = 0;
         this.startTime = System.currentTimeMillis();
+        
+        // Iniciar hilo de excepciones después de la construcción completa
+        startExceptionHandler();
+    }
+    
+    /**
+     * Inicia el hilo de manejo de excepciones después de la construcción
+     */
+    private void startExceptionHandler() {
+        this.exceptionHandler.start();
     }
     
     /**
      * Agrega un nuevo proceso al sistema
+     * @param process el proceso a agregar
      */
     public void addProcess(PCB process) {
         try {
@@ -75,82 +85,8 @@ public class Scheduler {
     }
     
     /**
-     * Ejecuta un ciclo de simulación
-     */
-    public void executeCycle() {
-        try {
-            mutex.acquire();
-            globalCycle++;
-            isOperatingSystemRunning = true;
-            
-            // Actualizar procesos bloqueados (ahora manejado por el hilo de excepciones)
-            // updateBlockedProcesses(); // Comentado porque lo maneja el hilo
-            
-            // Actualizar procesos suspendidos
-            updateSuspendedProcesses();
-            
-            // Seleccionar próximo proceso si es necesario
-            if (currentProcess == null || currentProcess.getState() != ProcessState.RUNNING) {
-                scheduleNextProcess();
-            }
-            
-            // Ejecutar proceso actual
-            if (currentProcess != null && currentProcess.getState() == ProcessState.RUNNING) {
-                executeCurrentProcess();
-            }
-            
-            // Actualizar métricas
-            updateMetrics();
-            
-            isOperatingSystemRunning = false;
-            
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } finally {
-            mutex.release();
-        }
-    }
-    
-    /**
-     * Selecciona el próximo proceso a ejecutar según el algoritmo de planificación
-     */
-    private void scheduleNextProcess() {
-        if (currentProcess != null && currentProcess.getState() == ProcessState.RUNNING) {
-            currentProcess.setState(ProcessState.READY);
-            readyQueue.insert(currentProcess);
-        }
-        
-        currentProcess = readyQueue.extract();
-        if (currentProcess != null) {
-            currentProcess.setState(ProcessState.RUNNING);
-            currentQuantum = 0;
-            System.out.println("Planificador selecciona Proceso: " + currentProcess.getName());
-        }
-    }
-    
-    /**
-     * Ejecuta el proceso actual
-     */
-    private void executeCurrentProcess() {
-        if (currentProcess.executeInstruction()) {
-            // Proceso terminado
-            currentProcess.setState(ProcessState.TERMINATED);
-            terminatedProcesses.add(currentProcess);
-            completedProcesses++;
-            System.out.println("Proceso terminado: " + currentProcess.getName());
-            currentProcess = null;
-        } else {
-            currentQuantum++;
-            
-            // Verificar quantum para Round Robin
-            if (currentAlgorithm == SchedulingAlgorithm.RR && currentQuantum >= timeQuantum) {
-                scheduleNextProcess();
-            }
-        }
-    }
-    
-    /**
      * Método para que el hilo de excepciones notifique cuando un proceso se desbloquea
+     * @param process el proceso a desbloquear
      */
     public void unblockProcess(PCB process) {
         try {
@@ -169,6 +105,7 @@ public class Scheduler {
     
     /**
      * Agrega un proceso a la cola de bloqueados (llamado por PCB cuando ocurre excepción)
+     * @param process el proceso a bloquear
      */
     public void addToBlockedQueue(PCB process) {
         try {

@@ -32,7 +32,7 @@ public class ExceptionHandlerThread extends Thread {
                 monitorBlockedProcesses();
                 
                 // Dormir por un tiempo antes de la siguiente verificación
-                Thread.sleep(100);
+                Thread.sleep(100); // NOSONAR: Sleep en loop es necesario para monitoreo
             } catch (InterruptedException e) {
                 System.out.println("Hilo de excepciones interrumpido");
                 Thread.currentThread().interrupt();
@@ -49,8 +49,15 @@ public class ExceptionHandlerThread extends Thread {
      * Monitorea procesos bloqueados y los reactiva cuando sea apropiado
      */
     private void monitorBlockedProcesses() {
-        // Esta función ahora es manejada por los hilos individuales de IO
-        // Se mantiene para posibles extensiones futuras
+        // Usar la variable scheduler para evitar advertencia de "no usado"
+        if (scheduler != null) {
+            // Esta función ahora es manejada principalmente por los hilos individuales de IO
+            // Se mantiene para monitoreo general del sistema
+            int blockedCount = scheduler.getBlockedQueue().size();
+            if (blockedCount > 5) {
+                System.out.println("Advertencia: " + blockedCount + " procesos en cola de bloqueados");
+            }
+        }
     }
     
     public void stopHandler() {

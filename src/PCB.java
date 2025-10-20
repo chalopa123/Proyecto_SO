@@ -7,6 +7,7 @@
  *
  * @author Chalopa
  */
+
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -17,21 +18,20 @@ public class PCB implements Comparable<PCB> {
     private static final AtomicInteger ID_GENERATOR = new AtomicInteger(1);
     
     private final int id;
-    private String name;
+    private final String name;
     private ProcessState state;
-    private ProcessType type;
-    private int totalInstructions;
+    private final ProcessType type;
+    private final int totalInstructions;
     private int programCounter;
     private int mar;
-    private int cyclesToException;
-    private int cyclesToCompleteException;
-    private int cyclesInBlocked;
+    private final int cyclesToException;
+    private final int cyclesToCompleteException;
     private int remainingInstructions;
     private int waitingTime;
     private int turnaroundTime;
     private int responseTime;
     private final long creationTime;
-    private Scheduler scheduler; // Referencia al planificador para notificar excepciones
+    private final Scheduler scheduler; // Referencia al planificador para notificar excepciones
     
     public PCB(String name, ProcessType type, int totalInstructions, 
                int cyclesToException, int cyclesToCompleteException, Scheduler scheduler) {
@@ -45,7 +45,6 @@ public class PCB implements Comparable<PCB> {
         this.state = ProcessState.NEW;
         this.programCounter = 0;
         this.mar = 0;
-        this.cyclesInBlocked = 0;
         this.creationTime = System.currentTimeMillis();
         this.scheduler = scheduler;
     }
@@ -108,7 +107,6 @@ public class PCB implements Comparable<PCB> {
      */
     private void generateIOException() {
         state = ProcessState.BLOCKED;
-        cyclesInBlocked = 0;
         
         // Notificar al planificador que este proceso se bloqueó
         if (scheduler != null) {
