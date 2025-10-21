@@ -140,17 +140,32 @@ public class ProcessHeap {
     private int compare(PCB p1, PCB p2) {
         if (p1 == null || p2 == null) return 0;
         
-        int result = switch (algorithm) {
-            case FCFS -> Long.compare(p1.getCreationTime(), p2.getCreationTime());
-            case SJF, SRTF -> Integer.compare(p1.getRemainingInstructions(), p2.getRemainingInstructions());
-            case RR -> Long.compare(p1.getCreationTime(), p2.getCreationTime());
-            case PRIORITY -> {
+        int result;
+        switch (algorithm) {
+            case FCFS:
+                result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
+                break;
+            case SJF:
+                result = Integer.compare(p1.getTotalInstructions(), p2.getTotalInstructions());
+                break;
+            case SRTF:
+                result = Integer.compare(p1.getRemainingInstructions(), p2.getRemainingInstructions());
+                break;
+            case RR:
+                result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
+                break;
+            case PRIORITY:
                 int p1Priority = (p1.getType() == ProcessType.IO_BOUND) ? 1 : 2;
                 int p2Priority = (p2.getType() == ProcessType.IO_BOUND) ? 1 : 2;
-                yield Integer.compare(p1Priority, p2Priority);
-            }
-            case MLFQ -> Long.compare(p1.getCreationTime(), p2.getCreationTime());
-        };
+                result = Integer.compare(p1Priority, p2Priority);
+                break;
+            case MLFQ:
+                result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
+                break;
+            default:
+                result = 0; // Caso por defecto
+                break;
+        }
         
         return isMinHeap ? result : -result;
     }

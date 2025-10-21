@@ -84,6 +84,87 @@ public class Scheduler {
         }
     }
     
+    // Añadir este método a la clase Scheduler (después del constructor)
+
+/**
+ * Ejecuta un ciclo de simulación completo
+ */
+    public void executeCycle() {
+        try {
+            mutex.acquire();
+            globalCycle++;
+            isOperatingSystemRunning = true;
+
+            // Actualizar procesos suspendidos
+            updateSuspendedProcesses();
+
+            // Seleccionar próximo proceso si es necesario
+            if (currentProcess == null || currentProcess.getState() != ProcessState.RUNNING) {
+                scheduleNextProcess();
+            }
+
+            // Ejecutar proceso actual
+            if (currentProcess != null && currentProcess.getState() == ProcessState.RUNNING) {
+                executeCurrentProcess();
+            }
+
+            // Actualizar métricas
+            updateMetrics();
+
+            isOperatingSystemRunning = false;
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            mutex.release();
+        }
+    }
+
+    // Y asegurarse de que estos métodos privados existan en la clase:
+
+    /**
+     * Selecciona el próximo proceso a ejecutar según el algoritmo de planificación
+     */
+    private void scheduleNextProcess() {
+        if (currentProcess != null && currentProcess.getState() == ProcessState.RUNNING) {
+            currentProcess.setState(ProcessState.READY);
+            readyQueue.insert(currentProcess);
+        }
+
+        currentProcess = readyQueue.extract();
+        if (currentProcess != null) {
+            currentProcess.setState(ProcessState.RUNNING);
+            currentQuantum = 0;
+            System.out.println("Planificador selecciona Proceso: " + currentProcess.getName());
+        }
+    }
+
+    /**
+     * Ejecuta el proceso actual
+     */
+    private void executeCurrentProcess() {
+        if (currentProcess.executeInstruction()) {
+            // Proceso terminado
+            currentProcess.setState(ProcessState.TERMINATED);
+            terminatedProcesses.add(currentProcess);
+            completedProcesses++;
+            System.out.println("Proceso terminado: " + currentProcess.getName());
+            currentProcess = null;
+        } else {
+            currentQuantum++;
+
+            // Verificar quantum para Round Robin
+            if (currentAlgorithm == SchedulingAlgorithm.RR && currentQuantum >= timeQuantum) {
+                scheduleNextProcess();
+            }
+        }
+    }
+    /**
+     * Actualiza el estado de los procesos suspendidos
+     */
+    /**
+     * Actualiza las métricas de rendimiento
+     */
     /**
      * Método para que el hilo de excepciones notifique cuando un proceso se desbloquea
      * @param process el proceso a desbloquear
