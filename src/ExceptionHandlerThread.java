@@ -32,7 +32,7 @@ public class ExceptionHandlerThread extends Thread {
                 monitorBlockedProcesses();
                 
                 // Dormir por un tiempo antes de la siguiente verificación
-                Thread.sleep(100); // NOSONAR: Sleep en loop es necesario para monitoreo
+                Thread.sleep(10); // NOSONAR: Sleep en loop es necesario para monitoreo
             } catch (InterruptedException e) {
                 System.out.println("Hilo de excepciones interrumpido");
                 Thread.currentThread().interrupt();

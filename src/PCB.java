@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Clase que representa el Bloque de Control de Proceso (PCB)
- * Con manejo de excepciones usando Threads
+ * Con correcciones para evitar bloqueos en excepciones I/O
  */
 public class PCB implements Comparable<PCB> {
     private static final AtomicInteger ID_GENERATOR = new AtomicInteger(1);
@@ -31,7 +31,10 @@ public class PCB implements Comparable<PCB> {
     private int turnaroundTime;
     private int responseTime;
     private final long creationTime;
-    private final Scheduler scheduler; // Referencia al planificador para notificar excepciones
+    private final Scheduler scheduler;
+    
+    // Bandera para evitar múltiples excepciones simultáneas
+    private boolean exceptionInProgress;
     
     public PCB(String name, ProcessType type, int totalInstructions, 
                int cyclesToException, int cyclesToCompleteException, Scheduler scheduler) {
@@ -47,9 +50,10 @@ public class PCB implements Comparable<PCB> {
         this.mar = 0;
         this.creationTime = System.currentTimeMillis();
         this.scheduler = scheduler;
+        this.exceptionInProgress = false;
     }
     
-    // Getters y Setters básicos
+    // Getters y Setters...
     public int getId() { return id; }
     public String getName() { return name; }
     public ProcessState getState() { return state; }
@@ -73,10 +77,13 @@ public class PCB implements Comparable<PCB> {
     public int getResponseTime() { return responseTime; }
     public void setResponseTime(int responseTime) { this.responseTime = responseTime; }
     public long getCreationTime() { return creationTime; }
+    public boolean isExceptionInProgress() { return exceptionInProgress; }
+    public void setExceptionInProgress(boolean exceptionInProgress) { 
+        this.exceptionInProgress = exceptionInProgress; 
+    }
     
     /**
-     * Ejecuta una instrucción del proceso
-     * @return true si el proceso ha terminado, false en caso contrario
+     * CORRECCIÓN CRÍTICA: Lógica mejorada para evitar bloqueos
      */
     public boolean executeInstruction() {
         if (remainingInstructions <= 0) {
@@ -88,10 +95,17 @@ public class PCB implements Comparable<PCB> {
         mar = programCounter;
         remainingInstructions--;
         
-        // Verificar si se genera una excepción de E/S
-        if (type == ProcessType.IO_BOUND && programCounter % cyclesToException == 0) {
+        // CORRECCIÓN: Solo generar excepción si no hay una en progreso y es I/O Bound
+        if (type == ProcessType.IO_BOUND && 
+            cyclesToException > 0 && 
+            programCounter > 0 && 
+            programCounter % cyclesToException == 0 &&
+            !exceptionInProgress &&
+            state == ProcessState.RUNNING) {
+            
+            System.out.println("Generando excepción I/O para: " + name + " en PC: " + programCounter);
             generateIOException();
-            return false;
+            return false; // El proceso se bloquea
         }
         
         if (remainingInstructions == 0) {
@@ -103,18 +117,52 @@ public class PCB implements Comparable<PCB> {
     }
     
     /**
-     * Genera una excepción de E/S usando un Thread separado
+     * CORRECCIÓN: Generar excepción de E/S de forma segura
      */
     private void generateIOException() {
+        // Marcar que hay una excepción en progreso
+        exceptionInProgress = true;
         state = ProcessState.BLOCKED;
         
-        // Notificar al planificador que este proceso se bloqueó
         if (scheduler != null) {
             scheduler.addToBlockedQueue(this);
         }
         
-        // Iniciar un hilo para manejar la excepción de E/S
-        IOExceptionThread ioThread = new IOExceptionThread(this, cyclesToCompleteException, scheduler);
+        // Iniciar hilo para manejar la excepción de E/S
+        Thread ioThread = new Thread(() -> {
+            try {
+                System.out.println("Hilo E/S iniciado para: " + name);
+                
+                // Simular el tiempo de la operación I/O
+                for (int i = 0; i < cyclesToCompleteException; i++) {
+                    Thread.sleep(300); // Más rápido para testing
+                    System.out.println("E/S progreso " + name + ": " + (i+1) + "/" + cyclesToCompleteException);
+                }
+                
+                // CORRECCIÓN: Usar invokeLater para actualizaciones GUI
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    try {
+                        // Desbloquear el proceso
+                        exceptionInProgress = false;
+                        if (scheduler != null) {
+                            scheduler.unblockProcess(PCB.this);
+                            System.out.println("Operación E/S completada para: " + name);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error al desbloquear proceso: " + e.getMessage());
+                    }
+                });
+                
+            } catch (InterruptedException e) {
+                System.out.println("Hilo E/S interrumpido para: " + name);
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                System.err.println("Error en hilo E/S para " + name + ": " + e.getMessage());
+            }
+        });
+        
+        ioThread.setDaemon(true);
+        ioThread.setName("IO-Thread-" + name);
         ioThread.start();
         
         System.out.println("Excepción de E/S generada para proceso: " + name);
@@ -122,7 +170,6 @@ public class PCB implements Comparable<PCB> {
     
     @Override
     public int compareTo(PCB other) {
-        // Comparación basada en el tiempo de creación para FCFS
         return Long.compare(this.creationTime, other.creationTime);
     }
     
