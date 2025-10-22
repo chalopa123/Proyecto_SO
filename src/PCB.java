@@ -7,32 +7,34 @@
  *
  * @author Chalopa
  */
+
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Clase que representa el Bloque de Control de Proceso (PCB)
+ * Con manejo de excepciones usando Threads
  */
 public class PCB implements Comparable<PCB> {
     private static final AtomicInteger ID_GENERATOR = new AtomicInteger(1);
     
     private final int id;
-    private String name;
+    private final String name;
     private ProcessState state;
-    private ProcessType type;
-    private int totalInstructions;
+    private final ProcessType type;
+    private final int totalInstructions;
     private int programCounter;
     private int mar;
-    private int cyclesToException;
-    private int cyclesToCompleteException;
-    private int cyclesInBlocked;
+    private final int cyclesToException;
+    private final int cyclesToCompleteException;
     private int remainingInstructions;
     private int waitingTime;
     private int turnaroundTime;
     private int responseTime;
     private final long creationTime;
+    private final Scheduler scheduler; // Referencia al planificador para notificar excepciones
     
     public PCB(String name, ProcessType type, int totalInstructions, 
-               int cyclesToException, int cyclesToCompleteException) {
+               int cyclesToException, int cyclesToCompleteException, Scheduler scheduler) {
         this.id = ID_GENERATOR.getAndIncrement();
         this.name = name;
         this.type = type;
@@ -43,8 +45,8 @@ public class PCB implements Comparable<PCB> {
         this.state = ProcessState.NEW;
         this.programCounter = 0;
         this.mar = 0;
-        this.cyclesInBlocked = 0;
         this.creationTime = System.currentTimeMillis();
+        this.scheduler = scheduler;
     }
     
     // Getters y Setters básicos
@@ -71,6 +73,52 @@ public class PCB implements Comparable<PCB> {
     public int getResponseTime() { return responseTime; }
     public void setResponseTime(int responseTime) { this.responseTime = responseTime; }
     public long getCreationTime() { return creationTime; }
+    
+    /**
+     * Ejecuta una instrucción del proceso
+     * @return true si el proceso ha terminado, false en caso contrario
+     */
+    public boolean executeInstruction() {
+        if (remainingInstructions <= 0) {
+            state = ProcessState.TERMINATED;
+            return true;
+        }
+        
+        programCounter++;
+        mar = programCounter;
+        remainingInstructions--;
+        
+        // Verificar si se genera una excepción de E/S
+        if (type == ProcessType.IO_BOUND && programCounter % cyclesToException == 0) {
+            generateIOException();
+            return false;
+        }
+        
+        if (remainingInstructions == 0) {
+            state = ProcessState.TERMINATED;
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Genera una excepción de E/S usando un Thread separado
+     */
+    private void generateIOException() {
+        state = ProcessState.BLOCKED;
+        
+        // Notificar al planificador que este proceso se bloqueó
+        if (scheduler != null) {
+            scheduler.addToBlockedQueue(this);
+        }
+        
+        // Iniciar un hilo para manejar la excepción de E/S
+        IOExceptionThread ioThread = new IOExceptionThread(this, cyclesToCompleteException, scheduler);
+        ioThread.start();
+        
+        System.out.println("Excepción de E/S generada para proceso: " + name);
+    }
     
     @Override
     public int compareTo(PCB other) {
