@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Clase que representa el Bloque de Control de Proceso (PCB)
- * Con manejo de excepciones usando Threads
+ * Con correcciones para no bloquear la interfaz y soporte para excepciones CPU Bound
  */
 public class PCB implements Comparable<PCB> {
     private static final AtomicInteger ID_GENERATOR = new AtomicInteger(1);
@@ -27,11 +27,11 @@ public class PCB implements Comparable<PCB> {
     private final int cyclesToException;
     private final int cyclesToCompleteException;
     private int remainingInstructions;
-    private int waitingTime;
-    private int turnaroundTime;
-    private int responseTime;
+    private long waitingTime;
+    private long turnaroundTime;
+    private long responseTime;
     private final long creationTime;
-    private final Scheduler scheduler; // Referencia al planificador para notificar excepciones
+    private final Scheduler scheduler;
     
     public PCB(String name, ProcessType type, int totalInstructions, 
                int cyclesToException, int cyclesToCompleteException, Scheduler scheduler) {
@@ -49,7 +49,7 @@ public class PCB implements Comparable<PCB> {
         this.scheduler = scheduler;
     }
     
-    // Getters y Setters básicos
+    // Getters y Setters
     public int getId() { return id; }
     public String getName() { return name; }
     public ProcessState getState() { return state; }
@@ -66,17 +66,16 @@ public class PCB implements Comparable<PCB> {
     public void setRemainingInstructions(int remainingInstructions) { 
         this.remainingInstructions = remainingInstructions; 
     }
-    public int getWaitingTime() { return waitingTime; }
-    public void setWaitingTime(int waitingTime) { this.waitingTime = waitingTime; }
-    public int getTurnaroundTime() { return turnaroundTime; }
-    public void setTurnaroundTime(int turnaroundTime) { this.turnaroundTime = turnaroundTime; }
-    public int getResponseTime() { return responseTime; }
-    public void setResponseTime(int responseTime) { this.responseTime = responseTime; }
+    public long getWaitingTime() { return waitingTime; }
+    public void setWaitingTime(long waitingTime) { this.waitingTime = waitingTime; }
+    public long getTurnaroundTime() { return turnaroundTime; }
+    public void setTurnaroundTime(long turnaroundTime) { this.turnaroundTime = turnaroundTime; }
+    public long getResponseTime() { return responseTime; }
+    public void setResponseTime(long responseTime) { this.responseTime = responseTime; }
     public long getCreationTime() { return creationTime; }
     
     /**
-     * Ejecuta una instrucción del proceso
-     * @return true si el proceso ha terminado, false en caso contrario
+     * Lógica de ejecución con excepciones para ambos tipos de procesos
      */
     public boolean executeInstruction() {
         if (remainingInstructions <= 0) {
@@ -88,10 +87,15 @@ public class PCB implements Comparable<PCB> {
         mar = programCounter;
         remainingInstructions--;
         
-        // Verificar si se genera una excepción de E/S
-        if (type == ProcessType.IO_BOUND && programCounter % cyclesToException == 0) {
-            generateIOException();
-            return false;
+        // CORRECCIÓN: Ambos tipos de procesos pueden generar excepciones
+        if (cyclesToException > 0 && 
+            programCounter > 0 && 
+            programCounter % cyclesToException == 0 &&
+            state == ProcessState.RUNNING) {
+            
+            System.out.println("Generando excepción para: " + name + " (" + type + ") en PC: " + programCounter);
+            generateException();
+            return false; // El proceso se bloquea
         }
         
         if (remainingInstructions == 0) {
@@ -103,26 +107,60 @@ public class PCB implements Comparable<PCB> {
     }
     
     /**
-     * Genera una excepción de E/S usando un Thread separado
+     * Generar excepción sin bloquear la interfaz
      */
-    private void generateIOException() {
+    private void generateException() {
+        // Cambiar estado a BLOQUEADO
         state = ProcessState.BLOCKED;
         
-        // Notificar al planificador que este proceso se bloqueó
+        // Notificar al scheduler
         if (scheduler != null) {
-            scheduler.addToBlockedQueue(this);
+            this.setState(ProcessState.BLOCKED);
         }
         
-        // Iniciar un hilo para manejar la excepción de E/S
-        IOExceptionThread ioThread = new IOExceptionThread(this, cyclesToCompleteException, scheduler);
-        ioThread.start();
+        // CORRECCIÓN: Usar SwingWorker para no bloquear la interfaz
+        javax.swing.SwingWorker<Void, Void> worker = new javax.swing.SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                try {
+                    System.out.println("Iniciando operación de excepción para: " + name);
+                    
+                    // Simular tiempo de operación (más corto para testing)
+                    int totalTime = cyclesToCompleteException * 100;
+                    for (int i = 0; i < cyclesToCompleteException; i++) {
+                        Thread.sleep(100); // Pequeños intervalos para mantener responsiva la UI
+                        System.out.println("Progreso excepción " + name + ": " + (i+1) + "/" + cyclesToCompleteException);
+                    }
+                    
+                    System.out.println("Operación de excepción completada para: " + name);
+                    
+                } catch (InterruptedException e) {
+                    System.out.println("Operación de excepción interrumpida para: " + name);
+                    Thread.currentThread().interrupt();
+                } catch (Exception e) {
+                    System.err.println("Error en operación de excepción para " + name + ": " + e.getMessage());
+                }
+                return null;
+            }
+            
+            @Override
+            protected void done() {
+                // Desbloquear el proceso cuando termina la excepción
+                if (scheduler != null) {
+                    scheduler.unblockProcess(PCB.this);
+                }
+            }
+        };
         
-        System.out.println("Excepción de E/S generada para proceso: " + name);
+        worker.execute();
+    }
+    
+    public void incrementWaitingTime() {
+        this.waitingTime++;
     }
     
     @Override
     public int compareTo(PCB other) {
-        // Comparación basada en el tiempo de creación para FCFS
         return Long.compare(this.creationTime, other.creationTime);
     }
     
