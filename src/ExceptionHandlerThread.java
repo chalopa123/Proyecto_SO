@@ -7,6 +7,7 @@
  *
  * @author chalo
  */
+
 /**
  * Hilo para manejar excepciones del sistema de manera global
  * Monitorea procesos bloqueados y gestiona su reactivación
@@ -19,7 +20,7 @@ public class ExceptionHandlerThread extends Thread {
         this.scheduler = scheduler;
         this.running = true;
         this.setName("ExceptionHandlerThread");
-        this.setDaemon(true);
+        this.setDaemon(true); // Es un hilo de fondo
     }
     
     @Override
@@ -32,7 +33,8 @@ public class ExceptionHandlerThread extends Thread {
                 monitorBlockedProcesses();
                 
                 // Dormir por un tiempo antes de la siguiente verificación
-                Thread.sleep(10); // NOSONAR: Sleep en loop es necesario para monitoreo
+                Thread.sleep(100); // Aumentamos el sleep, 10ms es muy agresivo
+            
             } catch (InterruptedException e) {
                 System.out.println("Hilo de excepciones interrumpido");
                 Thread.currentThread().interrupt();
@@ -46,15 +48,21 @@ public class ExceptionHandlerThread extends Thread {
     }
     
     /**
-     * Monitorea procesos bloqueados y los reactiva cuando sea apropiado
+     * Monitorea procesos bloqueados y los reactiva cuando sea apropiado.
+     * ¡VERSIÓN SEGURA!
      */
     private void monitorBlockedProcesses() {
-        // Usar la variable scheduler para evitar advertencia de "no usado"
         if (scheduler != null) {
-            // Esta función ahora es manejada principalmente por los hilos individuales de IO
-            // Se mantiene para monitoreo general del sistema
-            int blockedCount = scheduler.getBlockedQueue().size();
+            
+            // --- INICIO DE CAMBIOS ---
+            
+            // Obtenemos el tamaño de la cola de forma segura usando el snapshot
+            int blockedCount = scheduler.getBlockedQueueSnapshot().size();
+            
+            // --- FIN DE CAMBIOS ---
+            
             if (blockedCount > 5) {
+                // Este log es seguro, solo es una salida a consola
                 System.out.println("Advertencia: " + blockedCount + " procesos en cola de bloqueados");
             }
         }

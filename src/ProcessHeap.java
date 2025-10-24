@@ -180,8 +180,10 @@ public class ProcessHeap {
         heap = Arrays.copyOf(heap, heap.length * 2);
     }
     
-    public PCB[] toArray() {
-        return Arrays.copyOf(heap, size);
+    public Object[] toArray() {
+        // Devuelve una copia del array que contiene SOLO los elementos
+        // desde el índice 0 hasta size.
+        return java.util.Arrays.copyOf(heap, size);
     }
     
     public void clear() {

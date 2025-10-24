@@ -13,6 +13,9 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.Map; // Asegúrate de importar Map
+
+// ... (resto de importaciones si las hay) ...
 
 /**
  * Interfaz gráfica del simulador de planificación de procesos
@@ -23,7 +26,7 @@ public class SimulationGUI extends JFrame {
     private Timer simulationTimer;
     private int cycleDuration = 1000;
     
-    // Componentes de la interfaz
+    // ... (declaraciones de componentes de la GUI: JLabels, JTables, etc.) ...
     private JLabel currentCycleLabel;
     private JLabel currentProcessLabel;
     private JLabel cpuStateLabel;
@@ -39,10 +42,18 @@ public class SimulationGUI extends JFrame {
     private JButton stopButton;
     private JButton addProcessButton;
     
+    // Componentes de métricas (asegúrate de que estén declarados)
+    private JLabel throughputLabel;
+    private JLabel cpuUtilizationLabel;
+    private JLabel avgWaitTimeLabel;
+    private JLabel avgResponseTimeLabel;
+
+
     public SimulationGUI() {
         this.scheduler = new Scheduler();
-        initializeGUI();
+        initializeGUI(); // Este método debe inicializar los JLabels de métricas
         setupEventHandlers();
+        cycleDurationSpinner.setValue(1000);
     }
     
     private void initializeGUI() {
@@ -63,6 +74,10 @@ public class SimulationGUI extends JFrame {
         pack();
         setSize(1200, 800);
         setLocationRelativeTo(null);
+        throughputLabel = new JLabel("0.00 proc/s");
+        cpuUtilizationLabel = new JLabel("0.0 %");
+        avgWaitTimeLabel = new JLabel("0.00 ciclos");
+        avgResponseTimeLabel = new JLabel("0.00 ciclos");
         
         addWindowListener(new WindowAdapter() {
             @Override
@@ -172,15 +187,57 @@ public class SimulationGUI extends JFrame {
     }
     
     private void setupEventHandlers() {
+        simulationTimer = new Timer(cycleDuration, (ActionEvent e) -> {
+            // 1. Ejecutar el ciclo del planificador
+            scheduler.executeCycle();
+            
+            // 2. Actualizar la GUI (de forma segura)
+            updateGUI();
+        });
         // CORRECCIÓN: Usar lambdas para evitar parámetros no utilizados
-        startButton.addActionListener(e -> startSimulation());
-        stopButton.addActionListener(e -> stopSimulation());
+        int guiRefreshRate = 33; // Refrescar la GUI ~30 veces por segundo (33ms)
+        simulationTimer = new Timer(guiRefreshRate, (ActionEvent e) -> {
+            // ¡YA NO LLAMA A executeCycle()!
+            updateGUI(); 
+        });
+        startButton.addActionListener((e) -> {
+            scheduler.start(); // <-- AÑADIR ESTA LÍNEA
+            simulationTimer.start();
+            log("Simulación iniciada.");
+        });
+        stopButton.addActionListener((e) -> {
+            simulationTimer.stop();
+            scheduler.shutdown();
+            log("Simulación detenida por el usuario.");
+        });
         addProcessButton.addActionListener(e -> addProcessDialog());
-        algorithmComboBox.addActionListener(e -> changeAlgorithm());
-        cycleDurationSpinner.addChangeListener(e -> updateCycleDuration());
+        algorithmComboBox.addActionListener((e) -> {
+            SchedulingAlgorithm selected = (SchedulingAlgorithm) algorithmComboBox.getSelectedItem();
+            if (selected != null) {
+            // La llamada correcta es al scheduler
+                scheduler.setSchedulingAlgorithm(selected); 
+                log("Algoritmo cambiado a: " + selected);
+            }
+        });
+        cycleDurationSpinner.addChangeListener((e) -> {
+            int newDuration = (Integer) cycleDurationSpinner.getValue();
+            if (newDuration > 0) {
+                // YA NO CAMBIA EL simulationTimer.setDelay()
+                scheduler.setCycleDuration(newDuration); // Envía el valor al scheduler
+                log("Duración del ciclo cambiada a: " + newDuration + " ms");
+            }
+        });
         
         simulationTimer = new Timer(cycleDuration, e -> executeSimulationCycle());
         stopButton.setEnabled(false);
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                simulationTimer.stop();
+                scheduler.shutdown();
+                System.exit(0);
+            }
+        });
     }
     
     /**
@@ -193,61 +250,42 @@ public class SimulationGUI extends JFrame {
         log("Simulación iniciada");
     }
     
-    private void stopSimulation() {
-        simulationTimer.stop();
-        startButton.setEnabled(true);
-        stopButton.setEnabled(false);
-        log("Simulación detenida");
-    }
-    
-    private void changeAlgorithm() {
-        SchedulingAlgorithm algorithm = (SchedulingAlgorithm) algorithmComboBox.getSelectedItem();
-        scheduler.setCurrentAlgorithm(algorithm);
-        algorithmLabel.setText("Algoritmo: " + algorithm);
-        log("Algoritmo cambiado a: " + algorithm);
-    }
-    
-    private void updateCycleDuration() {
-        cycleDuration = (Integer) cycleDurationSpinner.getValue();
-        simulationTimer.setDelay(cycleDuration);
-        log("Duración del ciclo actualizada a: " + cycleDuration + "ms");
-    }
-    
     private void addProcessDialog() {
-    JTextField nameField = new JTextField("Process_" + System.currentTimeMillis());
-    JComboBox<ProcessType> typeCombo = new JComboBox<>(ProcessType.values());
-    
-    // VALORES MEJORADOS PARA TESTING:
-    JSpinner instructionsSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 50, 5));
-    JSpinner exceptionSpinner = new JSpinner(new SpinnerNumberModel(4, 2, 10, 1));
-    JSpinner completionSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 5, 1));
-    
-    JPanel panel = new JPanel(new GridLayout(5, 2));
-    panel.add(new JLabel("Nombre:"));
-    panel.add(nameField);
-    panel.add(new JLabel("Tipo:"));
-    panel.add(typeCombo);
-    panel.add(new JLabel("Instrucciones:"));
-    panel.add(instructionsSpinner);
-    panel.add(new JLabel("Ciclos para Excepción:"));
-    panel.add(exceptionSpinner);
-    panel.add(new JLabel("Ciclos para Completar Excepción:"));
-    panel.add(completionSpinner);
-    
-    int result = JOptionPane.showConfirmDialog(this, panel, "Agregar Proceso", 
-                                              JOptionPane.OK_CANCEL_OPTION);
-    if (result == JOptionPane.OK_OPTION) {
-        String name = nameField.getText();
-        ProcessType type = (ProcessType) typeCombo.getSelectedItem();
-        int instructions = (Integer) instructionsSpinner.getValue();
-        int exceptionCycles = (Integer) exceptionSpinner.getValue();
-        int completionCycles = (Integer) completionSpinner.getValue();
-        
-        PCB process = new PCB(name, type, instructions, exceptionCycles, completionCycles, scheduler);
-        scheduler.addProcess(process);
-        log("Nuevo proceso creado: " + name + " (" + type + ", " + instructions + " instrucciones)");
+        JTextField nameField = new JTextField("Process_" + System.currentTimeMillis());
+        JComboBox<ProcessType> typeCombo = new JComboBox<>(ProcessType.values());
+
+        // VALORES MEJORADOS PARA TESTING:
+        JSpinner instructionsSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 50, 5));
+        JSpinner exceptionSpinner = new JSpinner(new SpinnerNumberModel(4, 2, 10, 1));
+        JSpinner completionSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 5, 1));
+
+        JPanel panel = new JPanel(new GridLayout(5, 2));
+        panel.add(new JLabel("Nombre:"));
+        panel.add(nameField);
+        panel.add(new JLabel("Tipo:"));
+        panel.add(typeCombo);
+        panel.add(new JLabel("Instrucciones:"));
+        panel.add(instructionsSpinner);
+        panel.add(new JLabel("Ciclos para Excepción:"));
+        panel.add(exceptionSpinner);
+        panel.add(new JLabel("Ciclos para Completar Excepción:"));
+        panel.add(completionSpinner);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Agregar Proceso", 
+                                                  JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
+            String name = nameField.getText();
+            ProcessType type = (ProcessType) typeCombo.getSelectedItem();
+            int instructions = (Integer) instructionsSpinner.getValue();
+            int exceptionCycles = (Integer) exceptionSpinner.getValue();
+            int completionCycles = (Integer) completionSpinner.getValue();
+
+            PCB process = new PCB(name, type, instructions, exceptionCycles, completionCycles, scheduler);
+            scheduler.addProcess(process);
+            log("Nuevo proceso creado: " + name + " (" + type + ", " + instructions + " instrucciones)");
+        }
     }
-}
+
     
     private void executeSimulationCycle() {
         scheduler.executeCycle();
@@ -255,30 +293,36 @@ public class SimulationGUI extends JFrame {
     }
     
     private void updateGUI() {
+        // SwingUtilities.invokeLater es una buena práctica, aunque el Timer ya usa el EDT
         SwingUtilities.invokeLater(() -> {
-            currentCycleLabel.setText(String.valueOf(scheduler.getGlobalCycle()));
             
-            PCB currentProcess = scheduler.getCurrentProcess();
-            if (currentProcess != null) {
-                currentProcessLabel.setText(currentProcess.getName() + " (PC: " + currentProcess.getProgramCounter() + ")");
-                cpuStateLabel.setText("Programa Usuario");
-            } else {
-                currentProcessLabel.setText("Ninguno");
-                cpuStateLabel.setText("Sistema Operativo");
-            }
+            // Todos estos métodos get...Snapshot() ahora leen el caché
+            // o usan locks muy rápidos. No bloquearán la GUI.
             
-            // Actualizar todas las tablas
-            updateTable(readyQueueTable, scheduler.getReadyQueue().toArray());
-            updateTableFromCustomList(blockedQueueTable, scheduler.getBlockedQueue());
-            updateTableFromCustomList(suspendedQueueTable, scheduler.getSuspendedQueue());
-            updateTableFromCustomList(terminatedTable, scheduler.getTerminatedProcesses());
+            long cycle = scheduler.getGlobalCycleSnapshot();
+            PCB p = scheduler.getCurrentProcessSnapshot();
+            boolean osRunning = scheduler.getIsOperatingSystemRunningSnapshot();
+            SchedulingAlgorithm alg = scheduler.getAlgorithmSnapshot();
+            Map<String, Double> metrics = scheduler.getPerformanceMetricsSnapshot();
             
-            // Métricas cada 5 ciclos
-            if (scheduler.getGlobalCycle() % 5 == 0) {
-                log("Métricas - Throughput: " + String.format("%.2f", scheduler.getThroughput()) +
-                    ", CPU: " + String.format("%.2f", scheduler.getCpuUtilization() * 100) + "%" +
-                    ", Espera: " + String.format("%.2f", scheduler.getAverageWaitTime()));
-            }
+            boolean cpuIdle = scheduler.getIsCpuIdleSnapshot();
+            
+            currentCycleLabel.setText(String.valueOf(cycle));
+            currentProcessLabel.setText(p != null ? p.getName() + " (ID: " + p.getId() + ")" : "Ninguno");
+            cpuStateLabel.setText(cpuIdle ? "Sistema Operativo" : "Proceso");
+            algorithmLabel.setText(alg.toString());
+            
+            // Actualizar tablas usando los snapshots (que vienen del caché)
+            updateTable(readyQueueTable, scheduler.getReadyQueueSnapshot());
+            updateTableFromCustomList(blockedQueueTable, scheduler.getBlockedQueueSnapshot());
+            updateTableFromCustomList(suspendedQueueTable, scheduler.getSuspendedQueueSnapshot());
+            updateTableFromCustomList(terminatedTable, scheduler.getTerminatedQueueSnapshot());
+            
+            // Actualizar métricas
+            throughputLabel.setText(String.format("%.2f proc/s", metrics.get("Throughput")));
+            cpuUtilizationLabel.setText(String.format("%.1f %%", metrics.get("CPU_Utilization") * 100));
+            avgWaitTimeLabel.setText(String.format("%.2f ciclos", metrics.get("Avg_Wait_Time")));
+            avgResponseTimeLabel.setText(String.format("%.2f ciclos", metrics.get("Avg_Response_Time")));
         });
     }
     
@@ -286,6 +330,7 @@ public class SimulationGUI extends JFrame {
         DefaultTableModel model = (DefaultTableModel) table.getModel();
         model.setRowCount(0);
         
+        // Es seguro iterar 'processList' porque es una copia (snapshot)
         for (int i = 0; i < processList.size(); i++) {
             PCB p = processList.get(i);
             model.addRow(new Object[]{
@@ -299,6 +344,7 @@ public class SimulationGUI extends JFrame {
         DefaultTableModel model = (DefaultTableModel) table.getModel();
         model.setRowCount(0);
         
+        // Es seguro iterar 'processes' porque es una copia (snapshot)
         for (Object obj : processes) {
             if (obj instanceof PCB) {
                 PCB p = (PCB) obj;
@@ -312,9 +358,9 @@ public class SimulationGUI extends JFrame {
     
     private void log(String message) {
         SwingUtilities.invokeLater(() -> {
-            logArea.append("Ciclo " + scheduler.getGlobalCycle() + ": " + message + "\n");
+            // Usamos el snapshot para el ciclo global
+            logArea.append("Ciclo " + scheduler.getGlobalCycleSnapshot() + ": " + message + "\n");
             logArea.setCaretPosition(logArea.getDocument().getLength());
         });
-        System.out.println("Ciclo " + scheduler.getGlobalCycle() + ": " + message);
     }
 }

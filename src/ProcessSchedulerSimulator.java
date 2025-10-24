@@ -8,6 +8,7 @@
  * @author Chalopa
  */
 import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
 
 /**
  * Clase principal del simulador de planificación de procesos
@@ -18,8 +19,8 @@ public class ProcessSchedulerSimulator {
     public static void main(String[] args) {
         // Configurar el Look and Feel del sistema
         try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeel());
-        } catch (Exception e) {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (ClassNotFoundException | IllegalAccessException | InstantiationException | UnsupportedLookAndFeelException e) {
             System.err.println("Error al configurar el Look and Feel: " + e.getMessage());
         }
         
