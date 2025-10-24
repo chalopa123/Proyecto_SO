@@ -100,7 +100,7 @@ public class CustomList<T> {
     
     private void ensureCapacity() {
         if (size == elements.length) {
-            int newCapacity = elements.length * 2;
+            int newCapacity = elements.length == 0 ? DEFAULT_CAPACITY : elements.length * 2;
             elements = java.util.Arrays.copyOf(elements, newCapacity);
         }
     }
