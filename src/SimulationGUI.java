@@ -186,59 +186,74 @@ public class SimulationGUI extends JFrame {
         return table;
     }
     
-    private void setupEventHandlers() {
-        simulationTimer = new Timer(cycleDuration, (ActionEvent e) -> {
-            // 1. Ejecutar el ciclo del planificador
-            scheduler.executeCycle();
-            
-            // 2. Actualizar la GUI (de forma segura)
-            updateGUI();
-        });
-        // CORRECCIÓN: Usar lambdas para evitar parámetros no utilizados
-        int guiRefreshRate = 33; // Refrescar la GUI ~30 veces por segundo (33ms)
-        simulationTimer = new Timer(guiRefreshRate, (ActionEvent e) -> {
-            // ¡YA NO LLAMA A executeCycle()!
-            updateGUI(); 
-        });
-        startButton.addActionListener((e) -> {
-            scheduler.start(); // <-- AÑADIR ESTA LÍNEA
-            simulationTimer.start();
-            log("Simulación iniciada.");
-        });
-        stopButton.addActionListener((e) -> {
-            simulationTimer.stop();
-            scheduler.shutdown();
-            log("Simulación detenida por el usuario.");
-        });
-        addProcessButton.addActionListener(e -> addProcessDialog());
-        algorithmComboBox.addActionListener((e) -> {
-            SchedulingAlgorithm selected = (SchedulingAlgorithm) algorithmComboBox.getSelectedItem();
-            if (selected != null) {
-            // La llamada correcta es al scheduler
-                scheduler.setSchedulingAlgorithm(selected); 
-                log("Algoritmo cambiado a: " + selected);
-            }
-        });
-        cycleDurationSpinner.addChangeListener((e) -> {
-            int newDuration = (Integer) cycleDurationSpinner.getValue();
-            if (newDuration > 0) {
-                // YA NO CAMBIA EL simulationTimer.setDelay()
-                scheduler.setCycleDuration(newDuration); // Envía el valor al scheduler
-                log("Duración del ciclo cambiada a: " + newDuration + " ms");
-            }
-        });
+    // En SimulationGUI.java
+
+private void setupEventHandlers() {
+    
+    // 1. Definir la tasa de refresco de la GUI (p.ej., 30 FPS)
+    // Esto es independiente de la duración del ciclo de simulación.
+    int guiRefreshRate = 33; // Aprox. 30 veces por segundo (1000ms / 30fps = 33.3ms)
+
+    // 2. ÚNICA inicialización del Timer.
+    // Este timer SOLO se encarga de actualizar la GUI.
+    // NO debe llamar a scheduler.executeCycle().
+    simulationTimer = new Timer(guiRefreshRate, (ActionEvent e) -> {
+        updateGUI(); 
+    });
+
+    // 3. Configurar Listeners
+    startButton.addActionListener((e) -> {
+        scheduler.start(); // Inicia el hilo de simulación (Scheduler.run())
+        simulationTimer.start(); // Inicia el hilo de refresco de la GUI (este Timer)
         
-        simulationTimer = new Timer(cycleDuration, e -> executeSimulationCycle());
-        stopButton.setEnabled(false);
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
+        startButton.setEnabled(false); // Deshabilitar botón
+        stopButton.setEnabled(true);   // Habilitar botón
+        log("Simulación iniciada.");
+    });
+    
+    stopButton.addActionListener((e) -> {
+        simulationTimer.stop(); // Detiene el refresco de la GUI
+        scheduler.shutdown(); // Detiene el hilo de simulación
+        
+        startButton.setEnabled(true);   // Habilitar botón
+        stopButton.setEnabled(false); // Deshabilitar botón
+        log("Simulación detenida por el usuario.");
+    });
+    
+    addProcessButton.addActionListener(e -> addProcessDialog());
+    
+    algorithmComboBox.addActionListener((e) -> {
+        SchedulingAlgorithm selected = (SchedulingAlgorithm) algorithmComboBox.getSelectedItem();
+        if (selected != null) {
+            scheduler.setSchedulingAlgorithm(selected); 
+            log("Algoritmo cambiado a: " + selected);
+        }
+    });
+    
+    cycleDurationSpinner.addChangeListener((e) -> {
+        int newDuration = (Integer) cycleDurationSpinner.getValue();
+        if (newDuration > 0) {
+            // Envía la nueva duración al Scheduler, que la usará en su Thread.sleep()
+            scheduler.setCycleDuration(newDuration); 
+            log("Duración del ciclo cambiada a: " + newDuration + " ms");
+        }
+    });
+    
+    // 4. Estado inicial de los botones
+    stopButton.setEnabled(false);
+    
+    // 5. Manejador de cierre de ventana
+    addWindowListener(new WindowAdapter() {
+        @Override
+        public void windowClosing(WindowEvent e) {
+            if (simulationTimer != null) {
                 simulationTimer.stop();
-                scheduler.shutdown();
-                System.exit(0);
             }
-        });
-    }
+            scheduler.shutdown();
+            System.exit(0); // Asegurarse de que la app se cierra
+        }
+    });
+}
     
     /**
      * CORRECCIÓN: Métodos sin parámetros ActionEvent no utilizados

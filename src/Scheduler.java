@@ -146,7 +146,6 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
                 return;
             }
             globalCycle++;
-            isOperatingSystemRunning = (currentProcess == null);
             this.isCpuIdle = (currentProcess == null);
             updateSuspendedProcesses();
             
@@ -249,7 +248,6 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     
     private void executeCurrentProcess() {
         totalCpuBusyTime++;
-        isOperatingSystemRunning = false;
         this.isCpuIdle = false;
         currentProcess.executeInstruction(); 
         currentQuantum++;
