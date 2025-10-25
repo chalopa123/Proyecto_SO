@@ -97,7 +97,7 @@ public class SimulationGUI extends JFrame {
         
         currentCycleLabel = new JLabel("0");
         currentProcessLabel = new JLabel("Ninguno");
-        cpuStateLabel = new JLabel("Sistema Operativo");
+        cpuStateLabel = new JLabel("Modo Kernel");
         algorithmLabel = new JLabel("FCFS");
         
         // Agregar etiquetas y valores en pares
@@ -307,6 +307,8 @@ private void setupEventHandlers() {
             PCB process = new PCB(name, type, instructions, exceptionCycles, completionCycles, scheduler);
             scheduler.addProcess(process);
             log("Nuevo proceso creado: " + name + " (" + type + ", " + instructions + " instrucciones)");
+            log("Nuevo proceso " + name + " agregado a la cola NEW.");
+            updateGUI();
         }
     }
 
@@ -333,7 +335,7 @@ private void setupEventHandlers() {
             
             currentCycleLabel.setText(String.valueOf(cycle));
             currentProcessLabel.setText(p != null ? p.getName() + " (ID: " + p.getId() + ")" : "Ninguno");
-            cpuStateLabel.setText(cpuIdle ? "Sistema Operativo" : "Proceso");
+            cpuStateLabel.setText(cpuIdle ? "Modo Kernel" : "Modo Usuario");
             algorithmLabel.setText(alg.toString());
             
             // Actualizar tablas usando los snapshots (que vienen del caché)
