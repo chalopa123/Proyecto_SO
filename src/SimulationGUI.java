@@ -43,6 +43,8 @@ public class SimulationGUI extends JFrame {
     private JButton startButton;
     private JButton stopButton;
     private JButton addProcessButton;
+    private JButton saveCycleButton;
+    private JButton loadCycleButton;
     private int processCounter = 1;
     
     // Componentes de métricas (asegúrate de que estén declarados)
@@ -171,10 +173,14 @@ public class SimulationGUI extends JFrame {
         startButton = new JButton("Iniciar");
         stopButton = new JButton("Detener");
         addProcessButton = new JButton("Agregar Proceso");
+        saveCycleButton = new JButton("Guardar Ciclo");
+        loadCycleButton = new JButton("Cargar Ciclo");
         
         controlPanel.add(startButton);
         controlPanel.add(stopButton);
         controlPanel.add(addProcessButton);
+        controlPanel.add(saveCycleButton);
+        controlPanel.add(loadCycleButton);
         
         logArea = new JTextArea(10, 80);
         logArea.setEditable(false);
@@ -275,6 +281,10 @@ private void setupEventHandlers() {
     });
     
     addProcessButton.addActionListener(e -> addProcessDialog());
+    
+    saveCycleButton.addActionListener(e -> saveCycleDurationToCSV());
+    
+    loadCycleButton.addActionListener(e -> loadCycleDurationToCSV());
     
     algorithmComboBox.addActionListener((e) -> {
         SchedulingAlgorithm selected = (SchedulingAlgorithm) algorithmComboBox.getSelectedItem();
@@ -510,5 +520,34 @@ private void setupEventHandlers() {
             logArea.append("Ciclo " + scheduler.getGlobalCycleSnapshot() + ": " + message + "\n");
             logArea.setCaretPosition(logArea.getDocument().getLength());
         });
+    }
+
+    private void saveCycleDurationToCSV() {
+        String filePath = "src//archivos//cicloguardado.csv";
+        try (java.io.BufferedWriter writer = new java.io.BufferedWriter(new java.io.FileWriter(filePath))) {
+            writer.write("cycleDuration;" + scheduler.getCycleDuration());
+            writer.newLine();
+            log("Duración de ciclo guardada en " + filePath);
+        } catch (Exception ex) {
+            log("Error al guardar la duración de ciclo: " + ex.getMessage());
+        }
+    }
+
+    private void loadCycleDurationToCSV() {
+    String filePath = "src//archivos//cicloguardado.csv";
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(filePath))) {
+            String line = reader.readLine();
+            if (line != null && line.startsWith("cycleDuration")) {
+                String[] parts = line.split(";");
+                int loadedDuration = Integer.parseInt(parts[1]);
+                scheduler.setCycleDuration(loadedDuration);
+                cycleDurationSpinner.setValue(loadedDuration); // Actualiza el spinner
+                log("Duración de ciclo cargada desde " + filePath + ": " + loadedDuration + " ms");
+            } else {
+                log("No se encontró la duración de ciclo en el archivo.");
+            }
+        } catch (Exception ex) {
+            log("Error al cargar la duración de ciclo: " + ex.getMessage());
+        }
     }
 }
