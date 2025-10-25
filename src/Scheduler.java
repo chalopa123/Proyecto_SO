@@ -466,4 +466,8 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     public void setCycleDuration(int duration) {
         this.cycleDuration = duration; // 'cycleDuration' es volatile
     }
+    
+    public int getCycleDuration() {
+        return cycleDuration;
+    }
 }

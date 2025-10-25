@@ -83,6 +83,7 @@ public class PCB implements Comparable<PCB> {
     
     /**
      * Lógica de ejecución con excepciones para ambos tipos de procesos
+     * @return 
      */
     public boolean executeInstruction() {
         if (remainingInstructions <= 0) {
