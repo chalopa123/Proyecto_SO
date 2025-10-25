@@ -39,9 +39,11 @@ public class SimulationGUI extends JFrame {
     private JTextArea logArea;
     private JComboBox<SchedulingAlgorithm> algorithmComboBox;
     private JSpinner cycleDurationSpinner;
+    private JComboBox<String> timeUnitComboBox;
     private JButton startButton;
     private JButton stopButton;
     private JButton addProcessButton;
+    private int processCounter = 1;
     
     // Componentes de métricas (asegúrate de que estén declarados)
     private JLabel throughputLabel;
@@ -160,8 +162,11 @@ public class SimulationGUI extends JFrame {
         controlPanel.add(algorithmComboBox);
         
         cycleDurationSpinner = new JSpinner(new SpinnerNumberModel(1000, 100, 5000, 100));
-        controlPanel.add(new JLabel("Duración Ciclo (ms):"));
+        controlPanel.add(new JLabel("Duración Ciclo:"));
         controlPanel.add(cycleDurationSpinner);
+        
+        timeUnitComboBox = new JComboBox<>(new String[]{"ms", "s"});
+        controlPanel.add(timeUnitComboBox);
         
         startButton = new JButton("Iniciar");
         stopButton = new JButton("Detener");
@@ -178,6 +183,45 @@ public class SimulationGUI extends JFrame {
         
         panel.add(controlPanel, BorderLayout.NORTH);
         panel.add(logScroll, BorderLayout.CENTER);
+
+        // --- AÑADIR ESTAS LÍNEAS ---
+        JTextArea algorithmArea = new JTextArea(5, 80);
+        algorithmArea.setEditable(false);
+        algorithmArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        
+        // Obtenemos los algoritmos del Enum
+        StringBuilder algoText = new StringBuilder("Tipos de Algoritmos de Planificación:\n");
+        for (SchedulingAlgorithm alg : SchedulingAlgorithm.values()) { //
+            switch (alg) {
+                case FCFS:
+                    algoText.append("FCFS:     First Come First Served\n");
+                    break;
+                case SJF:
+                    algoText.append("SJF:      Shortest Job First\n");
+                    break;
+                case RR:
+                    algoText.append("RR:       Round Robin\n");
+                    break;
+                case PRIORITY:
+                    algoText.append("PRIORITY: Planificación por Prioridad (Estática)\n");
+                    break;
+                case SRTF:
+                    algoText.append("SRTF:     Shortest Remaining Time First\n");
+                    break;
+                case MLFQ:
+                    algoText.append("MLFQ:     Multi-Level Feedback Queue\n");
+                    break;
+                case HRRN:
+                    algoText.append("HRRN:     Highest Response Ratio Next\n");
+                    break;
+            }
+        }
+        algorithmArea.setText(algoText.toString());
+        
+        JScrollPane algorithmScroll = new JScrollPane(algorithmArea);
+        algorithmScroll.setBorder(BorderFactory.createTitledBorder("Leyenda de Algoritmos"));
+        
+        panel.add(algorithmScroll, BorderLayout.SOUTH);
         
         return panel;
     }
@@ -239,14 +283,31 @@ private void setupEventHandlers() {
         }
     });
     
-    cycleDurationSpinner.addChangeListener((e) -> {
-        int newDuration = (Integer) cycleDurationSpinner.getValue();
-        if (newDuration > 0) {
-            // Envía la nueva duración al Scheduler, que la usará en su Thread.sleep()
-            scheduler.setCycleDuration(newDuration); 
-            log("Duración del ciclo cambiada a: " + newDuration + " ms");
-        }
-    });
+    javax.swing.event.ChangeListener spinnerListener = (e) -> {
+            int newDurationValue = (Integer) cycleDurationSpinner.getValue();
+            String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
+            int newDurationMs; // El Scheduler siempre funciona en ms
+
+            if ("s".equals(selectedUnit)) {
+                newDurationMs = newDurationValue * 1000;
+            } else {
+                newDurationMs = newDurationValue;
+            }
+
+            if (newDurationMs > 0) {
+                scheduler.setCycleDuration(newDurationMs); 
+                log("Duración del ciclo cambiada a: " + newDurationValue + " " + selectedUnit);
+            }
+        };
+        
+        // 2. Asignar el listener al spinner
+        cycleDurationSpinner.addChangeListener(spinnerListener);
+
+        // 3. Listener para el COMBOBOX (control de unidad)
+        timeUnitComboBox.addActionListener((e) -> {
+            // Llama al método helper y le PASA el listener para que lo remueva
+            convertTimeUnits(spinnerListener);
+        });
     
     // 4. Estado inicial de los botones
     stopButton.setEnabled(false);
@@ -275,7 +336,7 @@ private void setupEventHandlers() {
     }
     
     private void addProcessDialog() {
-        JTextField nameField = new JTextField("Process_" + System.currentTimeMillis());
+        JTextField nameField = new JTextField("Process_" + processCounter);
         JComboBox<ProcessType> typeCombo = new JComboBox<>(ProcessType.values());
 
         // VALORES MEJORADOS PARA TESTING:
@@ -309,6 +370,7 @@ private void setupEventHandlers() {
             log("Nuevo proceso creado: " + name + " (" + type + ", " + instructions + " instrucciones)");
             log("Nuevo proceso " + name + " agregado a la cola NEW.");
             updateGUI();
+            processCounter++;
         }
     }
 
@@ -381,6 +443,54 @@ private void setupEventHandlers() {
                 });
             }
         }
+    }
+    
+    /**
+     * Convierte el valor del spinner cuando el usuario cambia la unidad (ms <-> s).
+     * @param spinnerListener El listener del spinner, para removerlo temporalmente.
+     */
+    private void convertTimeUnits(javax.swing.event.ChangeListener spinnerListener) {
+        // --- 1. REMOVER EL LISTENER ---
+        cycleDurationSpinner.removeChangeListener(spinnerListener);
+
+        // Obtener el estado actual
+        int currentValue = (Integer) cycleDurationSpinner.getValue();
+        String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
+        SpinnerNumberModel model = (SpinnerNumberModel) cycleDurationSpinner.getModel();
+        
+        int newDurationMs;
+
+        if ("s".equals(selectedUnit)) {
+            // --- Se cambió A SEGUNDOS (el valor actual estaba en ms) ---
+            int newValueInSeconds = Math.max(1, currentValue / 1000);
+            
+            // Configurar el spinner para segundos (min=1s, max=10s, step=1s)
+            model.setMinimum(1);
+            model.setMaximum(10);
+            model.setStepSize(1);
+            model.setValue(newValueInSeconds); // Actualizar el valor
+            
+            newDurationMs = newValueInSeconds * 1000;
+
+        } else {
+            // --- Se cambió A MILISEGUNDOS (el valor actual estaba en s) ---
+            int newValueInMs = currentValue * 1000;
+
+            // Configurar el spinner para milisegundos (min=100ms, max=10000ms, step=100ms)
+            model.setMinimum(100);
+            model.setMaximum(10000);
+            model.setStepSize(100);
+            model.setValue(newValueInMs); // Actualizar el valor
+
+            newDurationMs = newValueInMs;
+        }
+
+        // Informar al scheduler del valor (siempre en ms)
+        scheduler.setCycleDuration(newDurationMs);
+        log("Unidad de ciclo cambiada a: " + cycleDurationSpinner.getValue() + " " + selectedUnit);
+
+        // --- 2. VOLVER A AGREGAR EL LISTENER ---
+        cycleDurationSpinner.addChangeListener(spinnerListener);
     }
     
     private void log(String message) {

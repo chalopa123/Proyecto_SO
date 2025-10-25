@@ -129,7 +129,12 @@ public class PCB implements Comparable<PCB> {
                     int totalTime = cyclesToCompleteException * 100;
                     for (int i = 0; i < cyclesToCompleteException; i++) {
                         Thread.sleep(100); // Pequeños intervalos para mantener responsiva la UI
-                        System.out.println("Progreso excepción " + name + ": " + (i+1) + "/" + cyclesToCompleteException);
+
+                        // --- AÑADE ESTA LÍNEA ---
+                        setMAR(getMAR() + 1); // Simular acceso a memoria durante E/S
+                        // -----------------------
+
+                        System.out.println("Progreso excepción " + name + ": " + (i + 1) + "/" + cyclesToCompleteException);
                     }
                     
                     System.out.println("Operación de excepción completada para: " + name);
