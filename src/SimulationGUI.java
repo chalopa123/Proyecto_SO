@@ -227,7 +227,7 @@ public class SimulationGUI extends JFrame {
     }
     
     private JTable createProcessTable() {
-        String[] columnNames = {"ID", "Nombre", "Estado", "PC", "MAR", "Instrucciones Restantes", "Tipo"};
+        String[] columnNames = {"ID", "Nombre", "Estado", "PC", "MAR", "Instrucciones Restantes", "Tipo", "Prioridad"};
         DefaultTableModel model = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -343,8 +343,9 @@ private void setupEventHandlers() {
         JSpinner instructionsSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 50, 5));
         JSpinner exceptionSpinner = new JSpinner(new SpinnerNumberModel(4, 2, 10, 1));
         JSpinner completionSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 5, 1));
+        JSpinner prioritySpinner = new JSpinner(new SpinnerNumberModel(2, 1, 3, 1));
 
-        JPanel panel = new JPanel(new GridLayout(5, 2));
+        JPanel panel = new JPanel(new GridLayout(6, 2));
         panel.add(new JLabel("Nombre:"));
         panel.add(nameField);
         panel.add(new JLabel("Tipo:"));
@@ -355,6 +356,8 @@ private void setupEventHandlers() {
         panel.add(exceptionSpinner);
         panel.add(new JLabel("Ciclos para Completar Excepción:"));
         panel.add(completionSpinner);
+        panel.add(new JLabel("Prioridad (1=Alta, 3=Baja):"));
+        panel.add(prioritySpinner);
 
         int result = JOptionPane.showConfirmDialog(this, panel, "Agregar Proceso", 
                                                   JOptionPane.OK_CANCEL_OPTION);
@@ -364,10 +367,11 @@ private void setupEventHandlers() {
             int instructions = (Integer) instructionsSpinner.getValue();
             int exceptionCycles = (Integer) exceptionSpinner.getValue();
             int completionCycles = (Integer) completionSpinner.getValue();
+            int priority = (Integer) prioritySpinner.getValue();
 
-            PCB process = new PCB(name, type, instructions, exceptionCycles, completionCycles, scheduler);
+            PCB process = new PCB(name, type, instructions, exceptionCycles, completionCycles,priority, scheduler);
             scheduler.addProcess(process);
-            log("Nuevo proceso creado: " + name + " (" + type + ", " + instructions + " instrucciones)");
+            log("Nuevo proceso creado: " + name + " (" + type + ", " + instructions + " instrucciones, Prioridad: "+ priority + ")" );
             log("Nuevo proceso " + name + " agregado a la cola NEW.");
             updateGUI();
             processCounter++;
@@ -421,12 +425,13 @@ private void setupEventHandlers() {
         
         // Es seguro iterar 'processList' porque es una copia (snapshot)
         for (int i = 0; i < processList.size(); i++) {
-            PCB p = processList.get(i);
-            model.addRow(new Object[]{
-                p.getId(), p.getName(), p.getState(), p.getProgramCounter(),
-                p.getMAR(), p.getRemainingInstructions(), p.getType()
-            });
-        }
+        PCB p = processList.get(i);
+        model.addRow(new Object[]{
+            p.getId(), p.getName(), p.getState(), p.getProgramCounter(),
+            p.getMAR(), p.getRemainingInstructions(), p.getType(),
+            p.getPriority()
+        });
+    }
     }
     
     private void updateTable(JTable table, Object[] processes) {
@@ -439,7 +444,8 @@ private void setupEventHandlers() {
                 PCB p = (PCB) obj;
                 model.addRow(new Object[]{
                     p.getId(), p.getName(), p.getState(), p.getProgramCounter(),
-                    p.getMAR(), p.getRemainingInstructions(), p.getType()
+                    p.getMAR(), p.getRemainingInstructions(), p.getType(),
+                    p.getPriority()
                 });
             }
         }

@@ -155,9 +155,7 @@ public class ProcessHeap {
                 result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
                 break;
             case PRIORITY:
-                int p1Priority = (p1.getType() == ProcessType.IO_BOUND) ? 1 : 2;
-                int p2Priority = (p2.getType() == ProcessType.IO_BOUND) ? 1 : 2;
-                result = Integer.compare(p1Priority, p2Priority);
+                result = Integer.compare(p1.getPriority(), p2.getPriority());
                 break;
             case MLFQ:
                 result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
