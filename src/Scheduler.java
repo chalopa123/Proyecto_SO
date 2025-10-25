@@ -27,6 +27,8 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     private final CustomList<PCB> blockedQueue;
     private final CustomList<PCB> suspendedQueue;
     private final CustomList<PCB> terminatedProcesses;
+    private final CustomList<PCB> newQueue;
+    private int maxMultiprogrammingLevel = 5; 
     
     // --- ESTADO DE LA SIMULACIÓN ---
     private PCB currentProcess;
@@ -49,6 +51,7 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     private volatile CustomList<PCB> blockedQueueCache = new CustomList<>();
     private volatile CustomList<PCB> suspendedQueueCache = new CustomList<>();
     private volatile CustomList<PCB> terminatedQueueCache = new CustomList<>();
+    private volatile CustomList<PCB> newQueueCache = new CustomList<>();
     
     // Métricas (Protegidas por el mutex)
     private int completedProcesses;
@@ -58,6 +61,7 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     private final long startTime;
 
     public Scheduler() {
+        this.newQueue = new CustomList<>();
         this.readyQueue = new ProcessHeap(100, SchedulingAlgorithm.FCFS);
         this.blockedQueue = new CustomList<>();
         this.suspendedQueue = new CustomList<>();
@@ -146,6 +150,7 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
                 return;
             }
             globalCycle++;
+            longTermScheduler();
             this.isCpuIdle = (currentProcess == null);
             updateSuspendedProcesses();
             
@@ -172,11 +177,11 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     public void addProcess(PCB process) {
         mutex.lock();
         try {
-            process.setState(ProcessState.READY);
-            readyQueue.insert(process);
+            // El PCB se crea con estado NEW por defecto, solo lo añadimos a la cola.
+            newQueue.add(process);
             
-            // --- IMPORTANTE: Actualizar el caché ---
-            this.readyQueueCache = readyQueue.toArray();
+            // --- IMPORTANTE: Actualizar el caché de NUEVOS ---
+            this.newQueueCache = createSnapshot(newQueue);
             
         } finally {
             mutex.unlock();
@@ -227,6 +232,32 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     }
 
     // --- MÉTODOS PRIVADOS (Ayudantes, ya están dentro de un lock) ---
+    
+    /**
+     * Planificador de Largo Plazo (Long-Term Scheduler).
+     * Decide cuándo mover un proceso de NEW a READY.
+     * DEBE ser llamado desde un bloque SINCROZNIZADO (con lock).
+     */
+    private void longTermScheduler() {
+        // Calcular el nivel actual de multiprogramación
+        int currentLevel = readyQueue.size() + 
+                           blockedQueue.size() + 
+                           suspendedQueue.size();
+        if (currentProcess != null) {
+            currentLevel++;
+        }
+        
+        // Si hay espacio en memoria (según nuestro límite) y hay procesos esperando...
+        if (currentLevel < maxMultiprogrammingLevel && !newQueue.isEmpty()) {
+            // Mover el primer proceso de NEW a READY
+            PCB process = newQueue.removeAt(0); // CustomList.removeAt(0) actúa como un dequeue
+            process.setState(ProcessState.READY);
+            readyQueue.insert(process);
+            
+            // (Opcional: Log para consola)
+            System.out.println("LTS: Proceso " + process.getName() + " admitido a READY.");
+        }
+    }
 
     private void scheduleNextProcess() {
         if (currentProcess != null && currentProcess.getState() == ProcessState.RUNNING) {
@@ -292,6 +323,7 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
      * DEBE ser llamado desde un bloque SINCROZNIZADO (con lock).
      */
     private void updateGUICache() {
+        this.newQueueCache = createSnapshot(newQueue);
         this.readyQueueCache = readyQueue.toArray();
         this.blockedQueueCache = createSnapshot(blockedQueue);
         this.suspendedQueueCache = createSnapshot(suspendedQueue);
@@ -301,6 +333,10 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     // --- MÉTODOS "SNAPSHOT" SEGUROS PARA LA GUI (NO BLOQUEANTES) ---
     // (Estos métodos leen el caché o usan un lock rápido)
 
+    public CustomList<PCB> getNewQueueSnapshot() {
+        return newQueueCache; // Lee el caché (no bloquea)
+    }
+    
     public Object[] getReadyQueueSnapshot() {
         return readyQueueCache; // Lee el caché (no bloquea)
     }
