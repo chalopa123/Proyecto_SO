@@ -227,7 +227,8 @@ public class SimulationGUI extends JFrame {
     }
     
     private JTable createProcessTable() {
-        String[] columnNames = {"ID", "Nombre", "Estado", "PC", "MAR", "Instrucciones Restantes", "Tipo", "Prioridad"};
+        String[] columnNames = {"ID", "Nombre", "Estado", "PC", "MAR", "Instrucciones Restantes", "Tipo", "Prioridad",
+                                "Memoria (MB)"};
         DefaultTableModel model = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -344,8 +345,9 @@ private void setupEventHandlers() {
         JSpinner exceptionSpinner = new JSpinner(new SpinnerNumberModel(4, 2, 10, 1));
         JSpinner completionSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 5, 1));
         JSpinner prioritySpinner = new JSpinner(new SpinnerNumberModel(2, 1, 3, 1));
+        JSpinner memorySpinner = new JSpinner(new SpinnerNumberModel(64, 16, 256, 16));
 
-        JPanel panel = new JPanel(new GridLayout(6, 2));
+        JPanel panel = new JPanel(new GridLayout(7, 2));
         panel.add(new JLabel("Nombre:"));
         panel.add(nameField);
         panel.add(new JLabel("Tipo:"));
@@ -358,6 +360,8 @@ private void setupEventHandlers() {
         panel.add(completionSpinner);
         panel.add(new JLabel("Prioridad (1=Alta, 3=Baja):"));
         panel.add(prioritySpinner);
+        panel.add(new JLabel("Tamaño de Memoria (MB):"));
+        panel.add(memorySpinner);
 
         int result = JOptionPane.showConfirmDialog(this, panel, "Agregar Proceso", 
                                                   JOptionPane.OK_CANCEL_OPTION);
@@ -368,8 +372,9 @@ private void setupEventHandlers() {
             int exceptionCycles = (Integer) exceptionSpinner.getValue();
             int completionCycles = (Integer) completionSpinner.getValue();
             int priority = (Integer) prioritySpinner.getValue();
+            int memorySize = (Integer) memorySpinner.getValue();
 
-            PCB process = new PCB(name, type, instructions, exceptionCycles, completionCycles,priority, scheduler);
+            PCB process = new PCB(name, type, instructions, exceptionCycles, completionCycles, priority , memorySize, scheduler);
             scheduler.addProcess(process);
             log("Nuevo proceso creado: " + name + " (" + type + ", " + instructions + " instrucciones, Prioridad: "+ priority + ")" );
             log("Nuevo proceso " + name + " agregado a la cola NEW.");
@@ -429,7 +434,7 @@ private void setupEventHandlers() {
         model.addRow(new Object[]{
             p.getId(), p.getName(), p.getState(), p.getProgramCounter(),
             p.getMAR(), p.getRemainingInstructions(), p.getType(),
-            p.getPriority()
+            p.getPriority(), p.getMemorySize()
         });
     }
     }
@@ -445,7 +450,7 @@ private void setupEventHandlers() {
                 model.addRow(new Object[]{
                     p.getId(), p.getName(), p.getState(), p.getProgramCounter(),
                     p.getMAR(), p.getRemainingInstructions(), p.getType(),
-                    p.getPriority()
+                    p.getPriority(), p.getMemorySize()
                 });
             }
         }

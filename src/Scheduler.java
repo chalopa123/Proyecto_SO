@@ -40,6 +40,8 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     private final ReentrantLock mutex;
     private volatile boolean isCpuIdle; // <-- NUEVA VARIABLE para el estado de la CPU
     private volatile int cycleDuration = 1000;
+    private final int totalMemory = 512; // (Simulamos 512 MB de RAM)
+    private int usedMemory;
     
     // --- HILOS ---
     private Thread simulationThread;
@@ -62,6 +64,7 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
 
     public Scheduler() {
         this.newQueue = new CustomList<>();
+        this.usedMemory = 0;
         this.readyQueue = new ProcessHeap(100, SchedulingAlgorithm.FCFS);
         this.blockedQueue = new CustomList<>();
         this.suspendedQueue = new CustomList<>();
@@ -151,6 +154,8 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
             }
             globalCycle++;
             longTermScheduler();
+            mediumTermScheduler();
+            
             this.isCpuIdle = (currentProcess == null);
             updateSuspendedProcesses();
             
@@ -239,25 +244,55 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
      * DEBE ser llamado desde un bloque SINCROZNIZADO (con lock).
      */
     private void longTermScheduler() {
-        // Calcular el nivel actual de multiprogramación
-        int currentLevel = readyQueue.size() + 
-                           blockedQueue.size() + 
-                           suspendedQueue.size();
-        if (currentProcess != null) {
-            currentLevel++;
-        }
-        
-        // Si hay espacio en memoria (según nuestro límite) y hay procesos esperando...
-        if (currentLevel < maxMultiprogrammingLevel && !newQueue.isEmpty()) {
-            // Mover el primer proceso de NEW a READY
-            PCB process = newQueue.removeAt(0); // CustomList.removeAt(0) actúa como un dequeue
-            process.setState(ProcessState.READY);
-            readyQueue.insert(process);
-            
-            // (Opcional: Log para consola)
-            System.out.println("LTS: Proceso " + process.getName() + " admitido a READY.");
+        if (!newQueue.isEmpty()) {
+            PCB processToAdmit = newQueue.get(0);
+
+            // Si el proceso cabe en memoria...
+            if (usedMemory + processToAdmit.getMemorySize() <= totalMemory) {
+                // Mover el proceso de NEW a READY
+                PCB process = newQueue.removeAt(0);
+                process.setState(ProcessState.READY);
+                readyQueue.insert(process);
+
+                // Ocupar la memoria
+                usedMemory += process.getMemorySize();
+
+                System.out.println("LTS: Proceso " + process.getName() + " admitido a READY. (Memoria: " + usedMemory + "/" + totalMemory + ")");
+            }
         }
     }
+    
+    /**
+    * Planificador de Mediano Plazo (Medium-Term Scheduler).
+    * Decide cuándo suspender un proceso para liberar memoria.
+    * DEBE ser llamado desde un bloque SINCROZNIZADO (con lock).
+    */
+   private void mediumTermScheduler() {
+       if (newQueue.isEmpty() || blockedQueue.isEmpty()) {
+           return; // No hay necesidad de suspender
+       }
+
+       PCB nextNewProcess = newQueue.get(0);
+       int availableMemory = totalMemory - usedMemory;
+
+       // Si el siguiente proceso nuevo no cabe, Y hay procesos bloqueados que podemos suspender...
+       if (nextNewProcess.getMemorySize() > availableMemory) {
+
+           // Suspendemos el primer proceso de la cola de bloqueados (es una política simple)
+           PCB processToSuspend = blockedQueue.removeAt(0);
+           processToSuspend.setState(ProcessState.SUSPENDED);
+           suspendedQueue.add(processToSuspend);
+
+           // Liberar la memoria
+           usedMemory -= processToSuspend.getMemorySize();
+
+           System.out.println("MTS: Proceso " + processToSuspend.getName() + " SUSPENDIDO. (Memoria: " + usedMemory + "/" + totalMemory + ")");
+
+           // Actualizar los cachés para la GUI
+           this.blockedQueueCache = createSnapshot(blockedQueue);
+           this.suspendedQueueCache = createSnapshot(suspendedQueue);
+       }
+   }
 
     private void scheduleNextProcess() {
         if (currentProcess != null && currentProcess.getState() == ProcessState.RUNNING) {
@@ -287,6 +322,8 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
             currentProcess.setTurnaroundTime(globalCycle);
             terminatedProcesses.add(currentProcess);
             completedProcesses++;
+            usedMemory -= currentProcess.getMemorySize(); // <-- AÑADIR (LIBERAR MEMORIA)
+            System.out.println("Kernel: Proceso " + currentProcess.getName() + " TERMINADO. (Memoria: " + usedMemory + "/" + totalMemory + ")");
             currentProcess = null;
         } else if (currentProcess.getState() == ProcessState.BLOCKED) {
             blockedQueue.add(currentProcess);
@@ -304,18 +341,32 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
         }
     }
     
-    private void updateSuspendedProcesses() { /* ... */ }
-
-    /**
-     * Método ayudante para crear un snapshot de una CustomList.
-     * DEBE ser llamado desde un bloque SINCROZNIZADO (con lock).
-     */
-    private CustomList<PCB> createSnapshot(CustomList<PCB> original) {
-        CustomList<PCB> snapshot = new CustomList<>();
-        for (int i = 0; i < original.size(); i++) {
-            snapshot.add(original.get(i));
+    private void updateSuspendedProcesses() {
+        if (suspendedQueue.isEmpty()) {
+            return; // No hay nada que reanudar
         }
-        return snapshot;
+
+        PCB processToResume = suspendedQueue.get(0);
+
+        // Si ahora cabe en memoria...
+        if (usedMemory + processToResume.getMemorySize() <= totalMemory) {
+            suspendedQueue.removeAt(0); // Sacarlo de suspendidos
+
+            // --- Lógica importante ---
+            // El PDF menciona "listos suspendidos" y "bloqueados suspendidos"
+            // Como nuestra lógica simple SÓLO suspende desde "BLOCKED",
+            // lo devolvemos a "READY" (asumiendo que su E/S ya terminó mientras estaba suspendido)
+            // Una implementación más compleja lo movería a "READY" o "BLOCKED"
+            processToResume.setState(ProcessState.READY);
+            readyQueue.insert(processToResume);
+
+            // Ocupar la memoria
+            usedMemory += processToResume.getMemorySize();
+
+            System.out.println("MTS: Proceso " + processToResume.getName() + " REANUDADO a READY. (Memoria: " + usedMemory + "/" + totalMemory + ")");
+
+            this.suspendedQueueCache = createSnapshot(suspendedQueue);
+        }
     }
 
     /**
@@ -400,6 +451,14 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
         } finally {
             mutex.unlock();
         }
+    }
+    
+    private CustomList<PCB> createSnapshot(CustomList<PCB> original) {
+        CustomList<PCB> snapshot = new CustomList<>();
+        for (int i = 0; i < original.size(); i++) {
+            snapshot.add(original.get(i));
+        }
+        return snapshot;
     }
     
     // --- CONTROL DE DURACIÓN DEL CICLO ---

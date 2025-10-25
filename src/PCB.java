@@ -32,11 +32,12 @@ public class PCB implements Comparable<PCB> {
     private long responseTime;
     private final long creationTime;
     private final int priority;
+    private final int memorySize;
     private final Scheduler scheduler;
     
     public PCB(String name, ProcessType type, int totalInstructions, 
                int cyclesToException, int cyclesToCompleteException,
-               int priority, Scheduler scheduler) {
+               int priority, int memorySize, Scheduler scheduler) {
         this.id = ID_GENERATOR.getAndIncrement();
         this.name = name;
         this.type = type;
@@ -45,6 +46,7 @@ public class PCB implements Comparable<PCB> {
         this.cyclesToException = cyclesToException;
         this.cyclesToCompleteException = cyclesToCompleteException;
         this.priority = priority;
+        this.memorySize = memorySize;
         this.state = ProcessState.NEW;
         this.programCounter = 0;
         this.mar = 0;
@@ -77,6 +79,7 @@ public class PCB implements Comparable<PCB> {
     public void setResponseTime(long responseTime) { this.responseTime = responseTime; }
     public long getCreationTime() { return creationTime; }
     public int getPriority() { return priority; }
+    public int getMemorySize() { return memorySize; }
     
     /**
      * Lógica de ejecución con excepciones para ambos tipos de procesos
