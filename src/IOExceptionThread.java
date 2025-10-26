@@ -33,9 +33,9 @@ public class IOExceptionThread extends Thread {
         try {
             // Simular el tiempo que toma la operación de E/S
             for (int i = 0; i < completionCycles && running; i++) {
-                Thread.sleep(100); // Simular E/S
+                Thread.sleep(100); // Simula el E/S
 
-                // Actualizar progreso (opcional, pero si esto actualiza la UI, también debería ir en invokeLater)
+                // Actualizar el progreso
                 process.setMAR(process.getMAR() + 1);
 
                 System.out.println("Operación E/S en progreso para " + process.getName()
@@ -44,7 +44,6 @@ public class IOExceptionThread extends Thread {
            
             if (running) {
                 if (scheduler != null) {
-                    // ¡Esta es la forma original, que ahora será segura!
                     scheduler.unblockProcess(process);
                     System.out.println("Operación E/S completada para: " + process.getName());
                 }

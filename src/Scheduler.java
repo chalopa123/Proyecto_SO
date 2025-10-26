@@ -20,7 +20,7 @@ import java.util.HashMap;
  * de caché volátil (volatile cache) para que la GUI lea los datos
  * sin bloquearse.
  */
-public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
+public class Scheduler implements Runnable {
     
     // Colas de procesos (Protegidas por el mutex)
     private ProcessHeap readyQueue;
@@ -55,7 +55,7 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     private volatile CustomList<PCB> terminatedQueueCache = new CustomList<>();
     private volatile CustomList<PCB> newQueueCache = new CustomList<>();
     
-    // Métricas (Protegidas por el mutex)
+    // Métricas (Protegidas por el semáforo)
     private int completedProcesses;
     private long totalCpuBusyTime;
     private long totalWaitTime;
@@ -118,16 +118,15 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     public void run() {
         while (isOperatingSystemRunning) {
             try {
-                // 1. Ejecutar un ciclo (ya está protegido por el lock)
+                // 1. Ejecuta un ciclo
                 executeCycle(); 
-                
-                // 2. Dormir durante la duración del ciclo
-                Thread.sleep(this.cycleDuration); // Lee 'volatile cycleDuration'
+                // 2. Lo pone a dormir durante la duración del ciclo
+                Thread.sleep(this.cycleDuration);
                 
             } catch (InterruptedException e) {
                 // Ocurre cuando se llama a shutdown()
-                Thread.currentThread().interrupt(); // Restablecer el flag
-                break; // Salir del bucle
+                Thread.currentThread().interrupt();
+                break;
             } catch (Exception e) {
                 System.err.println("Error en el bucle de simulación: " + e.getMessage());
             }
@@ -139,8 +138,6 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
      * Detiene el planificador y sus hilos asociados.
      */
     public void shutdown() {
-        // No necesitamos un lock aquí, solo seteamos un flag volatile
-        // y llamamos a interrupt()
         this.isOperatingSystemRunning = false; 
         cpuUsageHistory.clear();
         globalCycleHistory.clear();
@@ -267,12 +264,12 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
 
             // Si el proceso cabe en memoria...
             if (usedMemory + processToAdmit.getMemorySize() <= totalMemory) {
-                // Mover el proceso de NEW a READY
+                // Mueve el proceso de NEW a READY
                 PCB process = newQueue.removeAt(0);
                 process.setState(ProcessState.READY);
                 readyQueue.insert(process);
 
-                // Ocupar la memoria
+                // Ocupa la memoria
                 usedMemory += process.getMemorySize();
 
                 System.out.println("LTS: Proceso " + process.getName() + " admitido a READY. (Memoria: " + usedMemory + "/" + totalMemory + ")");
@@ -293,20 +290,20 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
        PCB nextNewProcess = newQueue.get(0);
        int availableMemory = totalMemory - usedMemory;
 
-       // Si el siguiente proceso nuevo no cabe, Y hay procesos bloqueados que podemos suspender...
+       // Si el siguiente proceso nuevo no cabe, Y hay procesos bloqueados que se pueden suspender...
        if (nextNewProcess.getMemorySize() > availableMemory) {
 
-           // Suspendemos el primer proceso de la cola de bloqueados (es una política simple)
+           // Suspende el primer proceso de la cola de bloqueados
            PCB processToSuspend = blockedQueue.removeAt(0);
            processToSuspend.setState(ProcessState.SUSPENDED);
            suspendedQueue.add(processToSuspend);
 
-           // Liberar la memoria
+           // Libera la memoria
            usedMemory -= processToSuspend.getMemorySize();
 
            System.out.println("MTS: Proceso " + processToSuspend.getName() + " SUSPENDIDO. (Memoria: " + usedMemory + "/" + totalMemory + ")");
 
-           // Actualizar los cachés para la GUI
+           // Actualiza los cachés para la GUI
            this.blockedQueueCache = createSnapshot(blockedQueue);
            this.suspendedQueueCache = createSnapshot(suspendedQueue);
        }
@@ -361,24 +358,18 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     
     private void updateSuspendedProcesses() {
         if (suspendedQueue.isEmpty()) {
-            return; // No hay nada que reanudar
+            return;
         }
 
         PCB processToResume = suspendedQueue.get(0);
 
-        // Si ahora cabe en memoria...
         if (usedMemory + processToResume.getMemorySize() <= totalMemory) {
             suspendedQueue.removeAt(0); // Sacarlo de suspendidos
 
-            // --- Lógica importante ---
-            // El PDF menciona "listos suspendidos" y "bloqueados suspendidos"
-            // Como nuestra lógica simple SÓLO suspende desde "BLOCKED",
-            // lo devolvemos a "READY" (asumiendo que su E/S ya terminó mientras estaba suspendido)
-            // Una implementación más compleja lo movería a "READY" o "BLOCKED"
             processToResume.setState(ProcessState.READY);
             readyQueue.insert(processToResume);
 
-            // Ocupar la memoria
+            // Ocupa la memoria
             usedMemory += processToResume.getMemorySize();
 
             System.out.println("MTS: Proceso " + processToResume.getName() + " REANUDADO a READY. (Memoria: " + usedMemory + "/" + totalMemory + ")");
