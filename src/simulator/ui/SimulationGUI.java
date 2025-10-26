@@ -347,41 +347,86 @@ public class SimulationGUI extends JFrame {
     }
     
     private void addProcessDialog() {
+        // --- Componentes del diálogo ---
         JTextField nameField = new JTextField("Process_" + processCounter);
         JComboBox<ProcessType> typeCombo = new JComboBox<>(ProcessType.values());
-
         JSpinner instructionsSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 50, 5));
+        
+        // --- Componentes de Excepción (ahora variables locales) ---
+        JLabel exceptionLabel = new JLabel("Ciclos para Excepción:");
         JSpinner exceptionSpinner = new JSpinner(new SpinnerNumberModel(4, 2, 10, 1));
-        JSpinner completionSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 999, 1));
+        JLabel completionLabel = new JLabel("Ciclos para Completar Excepción:");
+        JSpinner completionSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 999, 1)); // Límite corregido
+        // ---
+        
         JSpinner prioritySpinner = new JSpinner(new SpinnerNumberModel(2, 1, 3, 1));
         JSpinner memorySpinner = new JSpinner(new SpinnerNumberModel(64, 16, 256, 16));
 
-        JPanel panel = new JPanel(new GridLayout(7, 2));
+        // --- Panel del diálogo ---
+        JPanel panel = new JPanel(new GridLayout(7, 2, 5, 5)); // GridLayout con espacio vertical
         panel.add(new JLabel("Nombre:"));
         panel.add(nameField);
         panel.add(new JLabel("Tipo:"));
         panel.add(typeCombo);
         panel.add(new JLabel("Instrucciones:"));
         panel.add(instructionsSpinner);
-        panel.add(new JLabel("Ciclos para Excepción:"));
+        
+        // --- Añadir componentes de excepción al panel ---
+        panel.add(exceptionLabel);
         panel.add(exceptionSpinner);
-        panel.add(new JLabel("Ciclos para Completar Excepción:"));
+        panel.add(completionLabel);
         panel.add(completionSpinner);
+        // ---
+        
         panel.add(new JLabel("Prioridad (1=Alta, 3=Baja):"));
         panel.add(prioritySpinner);
         panel.add(new JLabel("Tamaño de Memoria (MB):"));
         panel.add(memorySpinner);
 
+        // --- LÓGICA PARA OCULTAR/MOSTRAR ---
+        // Función auxiliar para actualizar la visibilidad
+        Runnable updateVisibility = () -> {
+            boolean isIOBound = (typeCombo.getSelectedItem() == ProcessType.IO_BOUND);
+            exceptionLabel.setVisible(isIOBound);
+            exceptionSpinner.setVisible(isIOBound);
+            completionLabel.setVisible(isIOBound);
+            completionSpinner.setVisible(isIOBound);
+            
+            // Reajustar el tamaño del diálogo si los componentes se ocultan/muestran
+            Window window = SwingUtilities.getWindowAncestor(panel);
+            if (window != null) {
+                window.pack(); // Ajusta el tamaño al contenido
+            }
+        };
+
+        // Añadir el ActionListener al ComboBox
+        typeCombo.addActionListener(e -> updateVisibility.run());
+        
+        // Ejecutar una vez al inicio para establecer el estado inicial correcto
+        updateVisibility.run(); 
+        // --- FIN DE LÓGICA ---
+
+        // --- Mostrar el diálogo ---
         int result = JOptionPane.showConfirmDialog(this, panel, "Agregar Proceso", 
-                                                  JOptionPane.OK_CANCEL_OPTION);
+                                                  JOptionPane.OK_CANCEL_OPTION, 
+                                                  JOptionPane.PLAIN_MESSAGE); // Usar PLAIN_MESSAGE sin icono
+
+        // --- Procesar resultado ---
         if (result == JOptionPane.OK_OPTION) {
             String name = nameField.getText();
             ProcessType type = (ProcessType) typeCombo.getSelectedItem();
             int instructions = (Integer) instructionsSpinner.getValue();
-            int exceptionCycles = (Integer) exceptionSpinner.getValue();
-            int completionCycles = (Integer) completionSpinner.getValue();
             int priority = (Integer) prioritySpinner.getValue();
             int memorySize = (Integer) memorySpinner.getValue();
+            
+            // --- Obtener valores de excepción SÓLO si es IO_BOUND ---
+            int exceptionCycles = 0;
+            int completionCycles = 0;
+            if (type == ProcessType.IO_BOUND) {
+                exceptionCycles = (Integer) exceptionSpinner.getValue();
+                completionCycles = (Integer) completionSpinner.getValue();
+            }
+            // ---
 
             PCB process = new PCB(name, type, instructions, exceptionCycles, completionCycles, priority , memorySize, scheduler);
             scheduler.addProcess(process);

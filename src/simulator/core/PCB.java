@@ -101,7 +101,8 @@ public class PCB implements Comparable<PCB> {
         mar = programCounter;
         remainingInstructions--;
         
-        if (cyclesToException > 0 && 
+        if (this.type == ProcessType.IO_BOUND &&
+            cyclesToException > 0 && 
             programCounter > 0 && 
             programCounter % cyclesToException == 0 &&
             state == ProcessState.RUNNING) {
