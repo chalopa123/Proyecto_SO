@@ -1,3 +1,5 @@
+package simulator.ui;
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
@@ -8,9 +10,7 @@
  * @author chalo
  */
 
-// Archivo: CpuUsageGraphPanel.java
-// (Sin 'package' al inicio)
-
+import simulator.structures.CustomList;
 import javax.swing.JPanel;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -20,8 +20,7 @@ import java.awt.RenderingHints;
 import java.awt.BasicStroke;
 
 /**
- * Dibuja un gráfico de LÍNEA (como el de la imagen) del uso de CPU.
- * Agrupa los ciclos en "baldes" (buckets) para crear un gráfico más suave.
+ * Dibuja un gráfico
  */
 public class CpuUsageGraphPanel extends JPanel {
 
@@ -30,10 +29,8 @@ public class CpuUsageGraphPanel extends JPanel {
     private int totalBusyCycles = 0;
     private int totalCycles = 0;
     
-    // Almacena los puntos del gráfico (X, Y)
     private CustomList<Point> graphPoints; 
     
-    // (Clase interna simple para un punto)
     private static class Point {
         int x, y;
         Point(int x, int y) { this.x = x; this.y = y; }
@@ -60,16 +57,12 @@ public class CpuUsageGraphPanel extends JPanel {
         } else {
             this.currentUtilization = 0.0;
         }
-        
-        // Recalcular los puntos del gráfico
+
         calculateGraphPoints();
         
         this.repaint();
     }
 
-    /**
-     * Esta es la lógica clave para agrupar ciclos y crear un gráfico de línea.
-     */
     private void calculateGraphPoints() {
         graphPoints.clear();
         if (totalCycles == 0) return;
@@ -81,7 +74,6 @@ public class CpuUsageGraphPanel extends JPanel {
         int graphHeight = height - p*2;
         if (graphWidth <= 0 || graphHeight <= 0) return;
 
-        // Definimos cuántos puntos queremos en el gráfico (ej. uno por cada 5 píxeles)
         int numBuckets = Math.min(totalCycles, graphWidth / 5);
         if (numBuckets == 0) numBuckets = 1;
         
@@ -91,7 +83,7 @@ public class CpuUsageGraphPanel extends JPanel {
         for (int i = 0; i < numBuckets; i++) {
             int start = i * bucketSize;
             int end = Math.min((i + 1) * bucketSize, totalCycles);
-            if (i == numBuckets - 1) end = totalCycles; // Asegurar que el último bucket llegue al final
+            if (i == numBuckets - 1) end = totalCycles; 
 
             int busyInBucket = 0;
             int totalInBucket = end - start;
@@ -121,11 +113,11 @@ public class CpuUsageGraphPanel extends JPanel {
         int width = getWidth();
         int height = getHeight();
 
-        // 1. Fondo
+        // Fondo
         g2d.setColor(Color.DARK_GRAY);
         g2d.fillRect(0, 0, width, height);
 
-        // 2. Texto
+        // Texto
         g2d.setColor(Color.WHITE);
         g2d.setFont(new Font("Monospaced", Font.BOLD, 18));
         g2d.drawString(String.format("Utilización Total de CPU: %.2f %%", currentUtilization * 100), 20, 30);
@@ -133,22 +125,19 @@ public class CpuUsageGraphPanel extends JPanel {
         g2d.drawString(String.format("Ciclos Ocupados: %d", totalBusyCycles), 20, 55);
         g2d.drawString(String.format("Ciclos Totales: %d", totalCycles), 20, 75);
 
-        // 3. Ejes
-        int p = 60; // Padding
+        // Ejes
+        int p = 60; 
         g2d.setColor(Color.GRAY);
-        g2d.drawLine(p, p, p, height - p); // Y-axis
-        g2d.drawLine(p, height - p, width - p, height - p); // X-axis
-        // Etiquetas de ejes
+        g2d.drawLine(p, p, p, height - p);
+        g2d.drawLine(p, height - p, width - p, height - p);
         g2d.setFont(new Font("Monospaced", Font.PLAIN, 12));
         g2d.drawString("100%", p - 40, p + 5);
         g2d.drawString("0%", p - 30, height - p + 5);
         g2d.drawString("Tiempo (Ciclos)", (width / 2) - 40, height - (p/2) + 10);
 
-
-        // 4. Dibujar la LÍNEA (estilo imagen)
         if (graphPoints.size() > 1) {
-            g2d.setColor(new Color(60, 180, 255)); // Azul claro
-            g2d.setStroke(new BasicStroke(3)); // Línea gruesa
+            g2d.setColor(new Color(60, 180, 255)); 
+            g2d.setStroke(new BasicStroke(3)); 
 
             for (int i = 0; i < graphPoints.size() - 1; i++) {
                 Point p1 = graphPoints.get(i);
@@ -156,7 +145,6 @@ public class CpuUsageGraphPanel extends JPanel {
                 g2d.drawLine(p1.x, p1.y, p2.x, p2.y);
             }
             
-            // Dibujar el último punto (círculo)
             Point lastPoint = graphPoints.get(graphPoints.size() - 1);
             g2d.fillOval(lastPoint.x - 5, lastPoint.y - 5, 10, 10);
         }

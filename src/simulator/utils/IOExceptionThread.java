@@ -1,3 +1,9 @@
+package simulator.utils;
+
+
+import simulator.core.PCB;
+import simulator.core.Scheduler;
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
@@ -8,8 +14,7 @@
  * @author chalo
  */
 /**
- * Hilo para manejar excepciones de E/S específicas de cada proceso
- * Simula el tiempo que toma completar una operación de E/S
+ * Hilo para manejar excepciones de E/S 
  */
 public class IOExceptionThread extends Thread {
     private final PCB process;
@@ -31,11 +36,9 @@ public class IOExceptionThread extends Thread {
         System.out.println("Hilo de E/S iniciado para proceso: " + process.getName());
 
         try {
-            // Simular el tiempo que toma la operación de E/S
             for (int i = 0; i < completionCycles && running; i++) {
-                Thread.sleep(100); // Simular E/S
+                Thread.sleep(100);
 
-                // Actualizar progreso (opcional, pero si esto actualiza la UI, también debería ir en invokeLater)
                 process.setMAR(process.getMAR() + 1);
 
                 System.out.println("Operación E/S en progreso para " + process.getName()
@@ -44,7 +47,6 @@ public class IOExceptionThread extends Thread {
            
             if (running) {
                 if (scheduler != null) {
-                    // ¡Esta es la forma original, que ahora será segura!
                     scheduler.unblockProcess(process);
                     System.out.println("Operación E/S completada para: " + process.getName());
                 }

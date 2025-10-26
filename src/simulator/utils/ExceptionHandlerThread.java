@@ -1,3 +1,8 @@
+package simulator.utils;
+
+
+import simulator.core.Scheduler;
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
@@ -9,8 +14,7 @@
  */
 
 /**
- * Hilo para manejar excepciones del sistema de manera global
- * Monitorea procesos bloqueados y gestiona su reactivación
+ * Hilo para manejar excepciones del sistema 
  */
 public class ExceptionHandlerThread extends Thread {
     private final Scheduler scheduler;
@@ -20,7 +24,7 @@ public class ExceptionHandlerThread extends Thread {
         this.scheduler = scheduler;
         this.running = true;
         this.setName("ExceptionHandlerThread");
-        this.setDaemon(true); // Es un hilo de fondo
+        this.setDaemon(true); 
     }
     
     @Override
@@ -29,11 +33,9 @@ public class ExceptionHandlerThread extends Thread {
         
         while (running && !Thread.currentThread().isInterrupted()) {
             try {
-                // Monitorear procesos bloqueados periódicamente
                 monitorBlockedProcesses();
-                
-                // Dormir por un tiempo antes de la siguiente verificación
-                Thread.sleep(100); // Aumentamos el sleep, 10ms es muy agresivo
+
+                Thread.sleep(100); 
             
             } catch (InterruptedException e) {
                 System.out.println("Hilo de excepciones interrumpido");
@@ -47,22 +49,11 @@ public class ExceptionHandlerThread extends Thread {
         System.out.println("Hilo de manejo de excepciones terminado");
     }
     
-    /**
-     * Monitorea procesos bloqueados y los reactiva cuando sea apropiado.
-     * ¡VERSIÓN SEGURA!
-     */
     private void monitorBlockedProcesses() {
         if (scheduler != null) {
-            
-            // --- INICIO DE CAMBIOS ---
-            
-            // Obtenemos el tamaño de la cola de forma segura usando el snapshot
             int blockedCount = scheduler.getBlockedQueueSnapshot().size();
             
-            // --- FIN DE CAMBIOS ---
-            
             if (blockedCount > 5) {
-                // Este log es seguro, solo es una salida a consola
                 System.out.println("Advertencia: " + blockedCount + " procesos en cola de bloqueados");
             }
         }
