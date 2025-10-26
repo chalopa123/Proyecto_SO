@@ -57,12 +57,25 @@ public class SimulationGUI extends JFrame {
     private JLabel avgResponseTimeLabel;
 
 
-    public SimulationGUI() {
-        this.scheduler = new Scheduler();
+    public SimulationGUI(Scheduler scheduler, SimulationConfig config) {
+        this.scheduler = scheduler; // Se recibe
         this.activeMetricsWindows = new CustomList<>();
-        initializeGUI(); // Este método debe inicializar los JLabels de métricas
+
+        initializeGUI();
         setupEventHandlers();
-        cycleDurationSpinner.setValue(1000);
+
+        // --- APLICAR CONFIGURACIÓN INICIAL ---
+        int durationMs = config.getInitialCycleDuration();
+        if (durationMs >= 1000 && durationMs % 1000 == 0) {
+            timeUnitComboBox.setSelectedItem("s");
+            cycleDurationSpinner.setValue(durationMs / 1000);
+        } else {
+            timeUnitComboBox.setSelectedItem("ms");
+            cycleDurationSpinner.setValue(durationMs);
+        }
+
+        // Aplicar algoritmo
+        algorithmComboBox.setSelectedItem(config.getStartAlgorithm());
     }
     
     private void initializeGUI() {
@@ -177,14 +190,10 @@ public class SimulationGUI extends JFrame {
         startButton = new JButton("Iniciar");
         stopButton = new JButton("Detener");
         addProcessButton = new JButton("Agregar Proceso");
-        saveCycleButton = new JButton("Guardar Ciclo");
-        loadCycleButton = new JButton("Cargar Ciclo");
         
         controlPanel.add(startButton);
         controlPanel.add(stopButton);
         controlPanel.add(addProcessButton);
-        controlPanel.add(saveCycleButton);
-        controlPanel.add(loadCycleButton);
         openGraphsButton = new JButton("Abrir Gráficos");
         controlPanel.add(openGraphsButton);
 
@@ -295,10 +304,6 @@ private void setupEventHandlers() {
     
     addProcessButton.addActionListener(e -> addProcessDialog());
     
-    saveCycleButton.addActionListener(e -> saveCycleDurationToCSV());
-    
-    loadCycleButton.addActionListener(e -> loadCycleDurationToCSV());
-    
     algorithmComboBox.addActionListener((e) -> {
         SchedulingAlgorithm selected = (SchedulingAlgorithm) algorithmComboBox.getSelectedItem();
         if (selected != null) {
@@ -325,13 +330,25 @@ private void setupEventHandlers() {
     };
         
         // 2. Asignar el listener al spinner
-        cycleDurationSpinner.addChangeListener(spinnerListener);
+        // (En setupEventHandlers)
+// Reemplaza toda la lógica de spinnerListener y timeUnitComboBox
+// por el listener simple original:
+    cycleDurationSpinner.addChangeListener((e) -> {
+        int newDuration = (Integer) cycleDurationSpinner.getValue();
+        if ("s".equals(timeUnitComboBox.getSelectedItem())) {
+            newDuration *= 1000;
+        }
+        if (newDuration > 0) {
+            scheduler.setCycleDuration(newDuration);
+            log("Duración del ciclo cambiada a: " + cycleDurationSpinner.getValue() + " " + timeUnitComboBox.getSelectedItem());
+        }
+    });
 
-        // 3. Listener para el COMBOBOX (control de unidad)
-        timeUnitComboBox.addActionListener((e) -> {
-            // Llama al método helper y le PASA el listener para que lo remueva
-            convertTimeUnits(spinnerListener);
-        }); 
+    timeUnitComboBox.addActionListener((e) -> {
+        // Este listener ahora solo necesita forzar una actualización del spinner
+        // (Esta es una lógica simplificada, la conversión manual se la dejamos al WelcomeGUI)
+        cycleDurationSpinner.getEditor().getComponent(0).getListeners(ActionListener.class)[0].actionPerformed(null);
+    });
         
         openGraphsButton.addActionListener(e -> {
             MetricsDisplayGUI graphsWindow = new MetricsDisplayGUI("Gráficos de Rendimiento", "Gráficos", this);
@@ -501,89 +518,12 @@ private void setupEventHandlers() {
         }
     }
     
-    /**
-     * Convierte el valor del spinner cuando el usuario cambia la unidad (ms <-> s).
-     * @param spinnerListener El listener del spinner, para removerlo temporalmente.
-     */
-    private void convertTimeUnits(javax.swing.event.ChangeListener spinnerListener) {
-        // --- 1. REMOVER EL LISTENER ---
-        cycleDurationSpinner.removeChangeListener(spinnerListener);
-
-        // Obtener el estado actual
-        int currentValue = (Integer) cycleDurationSpinner.getValue();
-        String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
-        SpinnerNumberModel model = (SpinnerNumberModel) cycleDurationSpinner.getModel();
-        
-        int newDurationMs;
-
-        if ("s".equals(selectedUnit)) {
-            // --- Se cambió A SEGUNDOS (el valor actual estaba en ms) ---
-            int newValueInSeconds = Math.max(1, currentValue / 1000);
-            
-            // Configurar el spinner para segundos (min=1s, max=10s, step=1s)
-            model.setMinimum(1);
-            model.setMaximum(10);
-            model.setStepSize(1);
-            model.setValue(newValueInSeconds); // Actualizar el valor
-            
-            newDurationMs = newValueInSeconds * 1000;
-
-        } else {
-            // --- Se cambió A MILISEGUNDOS (el valor actual estaba en s) ---
-            int newValueInMs = currentValue * 1000;
-
-            // Configurar el spinner para milisegundos (min=100ms, max=10000ms, step=100ms)
-            model.setMinimum(100);
-            model.setMaximum(10000);
-            model.setStepSize(100);
-            model.setValue(newValueInMs); // Actualizar el valor
-
-            newDurationMs = newValueInMs;
-        }
-
-        // Informar al scheduler del valor (siempre en ms)
-        scheduler.setCycleDuration(newDurationMs);
-        log("Unidad de ciclo cambiada a: " + cycleDurationSpinner.getValue() + " " + selectedUnit);
-
-        // --- 2. VOLVER A AGREGAR EL LISTENER ---
-        cycleDurationSpinner.addChangeListener(spinnerListener);
-    }
-    
     private void log(String message) {
         SwingUtilities.invokeLater(() -> {
             // Usamos el snapshot para el ciclo global
             logArea.append("Ciclo " + scheduler.getGlobalCycleSnapshot() + ": " + message + "\n");
             logArea.setCaretPosition(logArea.getDocument().getLength());
         });
-    }
-
-    private void saveCycleDurationToCSV() {
-        String filePath = "src//archivos//cicloguardado.csv";
-        try (java.io.BufferedWriter writer = new java.io.BufferedWriter(new java.io.FileWriter(filePath))) {
-            writer.write("cycleDuration;" + scheduler.getCycleDuration());
-            writer.newLine();
-            log("Duración de ciclo guardada en " + filePath);
-        } catch (Exception ex) {
-            log("Error al guardar la duración de ciclo: " + ex.getMessage());
-        }
-    }
-
-    private void loadCycleDurationToCSV() {
-    String filePath = "src//archivos//cicloguardado.csv";
-        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(filePath))) {
-            String line = reader.readLine();
-            if (line != null && line.startsWith("cycleDuration")) {
-                String[] parts = line.split(";");
-                int loadedDuration = Integer.parseInt(parts[1]);
-                scheduler.setCycleDuration(loadedDuration);
-                cycleDurationSpinner.setValue(loadedDuration); // Actualiza el spinner
-                log("Duración de ciclo cargada desde " + filePath + ": " + loadedDuration + " ms");
-            } else {
-                log("No se encontró la duración de ciclo en el archivo.");
-            }
-        } catch (Exception ex) {
-            log("Error al cargar la duración de ciclo: " + ex.getMessage());
-        }
     }
     
     public void removeMetricsWindow(MetricsDisplayGUI window) {

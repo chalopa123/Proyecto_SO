@@ -40,7 +40,7 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     private final ReentrantLock mutex;
     private volatile boolean isCpuIdle; // <-- NUEVA VARIABLE para el estado de la CPU
     private volatile int cycleDuration = 1000;
-    private final int totalMemory = 512; // (Simulamos 512 MB de RAM)
+    private final int totalMemory;
     private int usedMemory;
     
     // --- HILOS ---
@@ -64,23 +64,39 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     private CustomList<Integer> cpuUsageHistory = new CustomList<>(); // 0:Idle, 1:Busy
     private CustomList<Integer> globalCycleHistory = new CustomList<>();
     
+    
     private volatile CustomList<Integer> cpuUsageHistoryCache = new CustomList<>();
     private volatile CustomList<Integer> globalCycleHistoryCache = new CustomList<>();
+    private CustomList<Integer> terminatedHistory = new CustomList<>();
+    private volatile CustomList<Integer> terminatedHistoryCache;
 
-    public Scheduler() {
+    // REEMPLAZAR CONSTRUCTOR
+    public Scheduler(SimulationConfig config) {
         this.newQueue = new CustomList<>();
         this.usedMemory = 0;
-        this.readyQueue = new ProcessHeap(100, SchedulingAlgorithm.FCFS);
+        this.readyQueue = new ProcessHeap(100, config.getStartAlgorithm()); 
         this.blockedQueue = new CustomList<>();
         this.suspendedQueue = new CustomList<>();
         this.terminatedProcesses = new CustomList<>();
-        this.currentAlgorithm = SchedulingAlgorithm.FCFS;
+        this.currentAlgorithm = config.getStartAlgorithm(); // <-- USAR CONFIG
         this.timeQuantum = 4;
         this.mutex = new ReentrantLock();
         this.isOperatingSystemRunning = false;
         this.isCpuIdle = true;
         this.startTime = System.currentTimeMillis();
-        // (El resto de métricas se inicializan a 0 por defecto)
+
+        // --- MODIFICACIONES DE CONSTRUCTOR ---
+        // Eliminar hardcodeo
+        // private final int totalMemory = 512; (eliminar línea)
+        this.totalMemory = config.getTotalMemory(); 
+
+        // Establecer duración inicial
+        this.cycleDuration = config.getInitialCycleDuration(); 
+
+        // Inicializar cachés de historial (para gráficos)
+        this.cpuUsageHistoryCache = new CustomList<>();
+        this.globalCycleHistoryCache = new CustomList<>();
+        this.terminatedHistoryCache = new CustomList<>();
     }
     
     /**
@@ -95,6 +111,8 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
             globalCycleHistory.clear();
             cpuUsageHistoryCache.clear();
             globalCycleHistoryCache.clear();
+            terminatedHistory.clear(); // <-- AÑADIR ESTA LÍNEA
+            terminatedHistoryCache.clear(); // <-- AÑADIR ESTA LÍNEA
             
             if (this.exceptionHandlerThread == null || !this.exceptionHandlerThread.isAlive()) {
                 this.exceptionHandlerThread = new ExceptionHandlerThread(this);
@@ -146,6 +164,8 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
         globalCycleHistory.clear();
         cpuUsageHistoryCache.clear();
         globalCycleHistoryCache.clear();
+        terminatedHistory.clear(); // <-- AÑADIR ESTA LÍNEA
+        terminatedHistoryCache.clear(); // <-- AÑADIR ESTA LÍNEA
         
         if (this.exceptionHandlerThread != null) {
             this.exceptionHandlerThread.stopHandler();
@@ -170,6 +190,7 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
             
             globalCycleHistory.add((int)globalCycle);
             cpuUsageHistory.add(this.isCpuIdle ? 0 : 1);
+            terminatedHistory.add(terminatedProcesses.size());
             
             longTermScheduler();
             mediumTermScheduler();
@@ -399,6 +420,7 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
         this.terminatedQueueCache = createSnapshot(terminatedProcesses);
         this.cpuUsageHistoryCache = createSnapshot(cpuUsageHistory);
         this.globalCycleHistoryCache = createSnapshot(globalCycleHistory);
+        this.terminatedHistoryCache = createSnapshot(terminatedHistory);
     }
 
     // --- MÉTODOS "SNAPSHOT" SEGUROS PARA LA GUI (NO BLOQUEANTES) ---
@@ -487,6 +509,10 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
             snapshot.add(original.get(i));
         }
         return snapshot;
+    }
+    
+    public CustomList<Integer> getTerminatedHistory() {
+        return terminatedHistoryCache; // Devuelve el caché volátil
     }
     
     // --- CONTROL DE DURACIÓN DEL CICLO ---
