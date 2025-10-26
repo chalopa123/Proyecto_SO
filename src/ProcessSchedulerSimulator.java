@@ -17,14 +17,14 @@ import javax.swing.UnsupportedLookAndFeelException;
 public class ProcessSchedulerSimulator {
     
     public static void main(String[] args) {
-        // Configura el Look and Feel del sistema
+        // Configurar el Look and Feel del sistema
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (ClassNotFoundException | IllegalAccessException | InstantiationException | UnsupportedLookAndFeelException e) {
             System.err.println("Error al configurar el Look and Feel: " + e.getMessage());
         }
         
-        // Inicia la interfaz gráfica
+        // Iniciar la interfaz gráfica
         javax.swing.SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
@@ -34,7 +34,7 @@ public class ProcessSchedulerSimulator {
     }
     
     private static void createAndShowGUI() {
-        // Crea y muestra la ventana principal
+        // Crear y mostrar la ventana principal
         SimulationGUI gui = new SimulationGUI();
         gui.setVisible(true);
         

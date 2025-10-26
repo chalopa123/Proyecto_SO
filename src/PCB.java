@@ -95,6 +95,7 @@ public class PCB implements Comparable<PCB> {
         mar = programCounter;
         remainingInstructions--;
         
+        // CORRECCIÓN: Ambos tipos de procesos pueden generar excepciones
         if (cyclesToException > 0 && 
             programCounter > 0 && 
             programCounter % cyclesToException == 0 &&
@@ -117,27 +118,29 @@ public class PCB implements Comparable<PCB> {
      * Generar excepción sin bloquear la interfaz
      */
     private void generateException() {
-        // Cambia estado a BLOQUEADO
+        // Cambiar estado a BLOQUEADO
         state = ProcessState.BLOCKED;
         
-        // Notifica al scheduler
+        // Notificar al scheduler
         if (scheduler != null) {
             this.setState(ProcessState.BLOCKED);
         }
         
-        // Usa SwingWorker para no bloquear la interfaz
+        // CORRECCIÓN: Usar SwingWorker para no bloquear la interfaz
         javax.swing.SwingWorker<Void, Void> worker = new javax.swing.SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() throws Exception {
                 try {
                     System.out.println("Iniciando operación de excepción para: " + name);
                     
-                    // Simula tiempo de operación (más corto para testing)
+                    // Simular tiempo de operación (más corto para testing)
                     int totalTime = cyclesToCompleteException * 100;
                     for (int i = 0; i < cyclesToCompleteException; i++) {
                         Thread.sleep(100); // Pequeños intervalos para mantener responsiva la UI
 
+                        // --- AÑADE ESTA LÍNEA ---
                         setMAR(getMAR() + 1); // Simular acceso a memoria durante E/S
+                        // -----------------------
 
                         System.out.println("Progreso excepción " + name + ": " + (i + 1) + "/" + cyclesToCompleteException);
                     }

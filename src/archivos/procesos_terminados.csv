@@ -1,3 +1,0 @@
-ID;Nombre;Estado;PC;MAR;InstruccionesRestantes;Tipo;Prioridad;Memoria
-1;Process_1;TERMINATED;5;5;0;CPU_BOUND;2;64
-2;Process_2;TERMINATED;5;5;0;CPU_BOUND;2;64

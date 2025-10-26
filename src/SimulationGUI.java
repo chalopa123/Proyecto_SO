@@ -13,19 +13,20 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.util.Map;
+import java.util.Map; // Asegúrate de importar Map
 
+// ... (resto de importaciones si las hay) ...
 
 /**
  * Interfaz gráfica del simulador de planificación de procesos
- *
+ * Con correcciones de diseño y parámetros no utilizados
  */
 public class SimulationGUI extends JFrame {
     private Scheduler scheduler;
     private Timer simulationTimer;
     private int cycleDuration = 1000;
     
-    // (declaraciones de componentes de la GUI: JLabels, JTables, etc.)
+    // ... (declaraciones de componentes de la GUI: JLabels, JTables, etc.) ...
     private JLabel currentCycleLabel;
     private JLabel currentProcessLabel;
     private JLabel cpuStateLabel;
@@ -49,7 +50,7 @@ public class SimulationGUI extends JFrame {
     private JButton openExtendedQueuesButton;
     private int processCounter = 1;
     
-    // Componentes de métricas
+    // Componentes de métricas (asegúrate de que estén declarados)
     private JLabel throughputLabel;
     private JLabel cpuUtilizationLabel;
     private JLabel avgWaitTimeLabel;
@@ -58,12 +59,8 @@ public class SimulationGUI extends JFrame {
 
     public SimulationGUI() {
         this.scheduler = new Scheduler();
-<<<<<<< Updated upstream
         this.activeMetricsWindows = new CustomList<>();
         initializeGUI(); // Este método debe inicializar los JLabels de métricas
-=======
-        initializeGUI();
->>>>>>> Stashed changes
         setupEventHandlers();
         cycleDurationSpinner.setValue(1000);
     }
@@ -73,6 +70,7 @@ public class SimulationGUI extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
         
+        // CORRECCIÓN: Panel superior sin duplicados
         JPanel topPanel = createTopPanel();
         add(topPanel, BorderLayout.NORTH);
         
@@ -99,9 +97,10 @@ public class SimulationGUI extends JFrame {
     }
     
     /**
-     * Panel superior
+     * CORRECCIÓN: Panel superior sin etiquetas duplicadas
      */
     private JPanel createTopPanel() {
+        // Usar GridLayout de 4 filas x 2 columnas para evitar duplicados
         JPanel panel = new JPanel(new GridLayout(4, 2, 5, 5));
         
         currentCycleLabel = new JLabel("0");
@@ -109,6 +108,7 @@ public class SimulationGUI extends JFrame {
         cpuStateLabel = new JLabel("Modo Kernel");
         algorithmLabel = new JLabel("FCFS");
         
+        // Agregar etiquetas y valores en pares
         panel.add(new JLabel("Ciclo Global:"));
         panel.add(currentCycleLabel);
         panel.add(new JLabel("Proceso Actual:"));
@@ -124,6 +124,7 @@ public class SimulationGUI extends JFrame {
     }
     
     private JPanel createCenterPanel() {
+        // Cambiamos el GridLayout de 2x2 a 3x2
         JPanel panel = new JPanel(new GridLayout(3, 2, 5, 5));
         
         newQueueTable = createProcessTable();
@@ -146,11 +147,13 @@ public class SimulationGUI extends JFrame {
         JScrollPane terminatedScroll = new JScrollPane(terminatedTable);
         terminatedScroll.setBorder(BorderFactory.createTitledBorder("Procesos Terminados"));
         
-        panel.add(newScroll);
-        panel.add(readyScroll);
-        panel.add(blockedScroll);
-        panel.add(suspendedScroll);
-        panel.add(terminatedScroll);
+        // Añadimos las tablas en el nuevo orden
+        panel.add(newScroll);       // (Fila 1, Col 1)
+        panel.add(readyScroll);     // (Fila 1, Col 2)
+        panel.add(blockedScroll);   // (Fila 2, Col 1)
+        panel.add(suspendedScroll); // (Fila 2, Col 2)
+        panel.add(terminatedScroll);// (Fila 3, Col 1)
+        // (El sexto slot, Fila 3 Col 2, quedará vacío)
         
         return panel;
     }
@@ -196,10 +199,12 @@ public class SimulationGUI extends JFrame {
         panel.add(controlPanel, BorderLayout.NORTH);
         panel.add(logScroll, BorderLayout.CENTER);
 
+        // --- AÑADIR ESTAS LÍNEAS ---
         JTextArea algorithmArea = new JTextArea(5, 80);
         algorithmArea.setEditable(false);
         algorithmArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
         
+        // Obtenemos los algoritmos del Enum
         StringBuilder algoText = new StringBuilder("Tipos de Algoritmos de Planificación:\n");
         for (SchedulingAlgorithm alg : SchedulingAlgorithm.values()) { //
             switch (alg) {
@@ -250,21 +255,25 @@ public class SimulationGUI extends JFrame {
         return table;
     }
     
+    // En SimulationGUI.java
+
 private void setupEventHandlers() {
     
-    // Define la tasa de refresco de la GUI
+    // 1. Definir la tasa de refresco de la GUI (p.ej., 30 FPS)
     // Esto es independiente de la duración del ciclo de simulación.
     int guiRefreshRate = 33; // Aprox. 30 veces por segundo (1000ms / 30fps = 33.3ms)
 
+    // 2. ÚNICA inicialización del Timer.
     // Este timer SOLO se encarga de actualizar la GUI.
+    // NO debe llamar a scheduler.executeCycle().
     simulationTimer = new Timer(guiRefreshRate, (ActionEvent e) -> {
         updateGUI(); 
     });
 
-    // Listeners
+    // 3. Configurar Listeners
     startButton.addActionListener((e) -> {
         scheduler.start(); // Inicia el hilo de simulación (Scheduler.run())
-        simulationTimer.start(); // Inicia el hilo de refresco de la GUI
+        simulationTimer.start(); // Inicia el hilo de refresco de la GUI (este Timer)
         
         startButton.setEnabled(false); // Deshabilitar botón
         stopButton.setEnabled(true);   // Habilitar botón
@@ -315,10 +324,10 @@ private void setupEventHandlers() {
             }
     };
         
-        // Asigna el listener al spinner
+        // 2. Asignar el listener al spinner
         cycleDurationSpinner.addChangeListener(spinnerListener);
 
-        // Listener para el COMBOBOX (control de unidad)
+        // 3. Listener para el COMBOBOX (control de unidad)
         timeUnitComboBox.addActionListener((e) -> {
             // Llama al método helper y le PASA el listener para que lo remueva
             convertTimeUnits(spinnerListener);
@@ -336,10 +345,10 @@ private void setupEventHandlers() {
             queuesWindow.setVisible(true);
         });
     
-    // Estado inicial de los botones
+    // 4. Estado inicial de los botones
     stopButton.setEnabled(false);
     
-    // Manejador de cierre de ventana
+    // 5. Manejador de cierre de ventana
     addWindowListener(new WindowAdapter() {
         @Override
         public void windowClosing(WindowEvent e) {
@@ -347,13 +356,13 @@ private void setupEventHandlers() {
                 simulationTimer.stop();
             }
             scheduler.shutdown();
-            System.exit(0); // Asegura de que la app se cierre
+            System.exit(0); // Asegurarse de que la app se cierra
         }
     });
 }
     
     /**
-     * Empieza la simulación
+     * CORRECCIÓN: Métodos sin parámetros ActionEvent no utilizados
      */
     private void startSimulation() {
         simulationTimer.start();
@@ -366,6 +375,7 @@ private void setupEventHandlers() {
         JTextField nameField = new JTextField("Process_" + processCounter);
         JComboBox<ProcessType> typeCombo = new JComboBox<>(ProcessType.values());
 
+        // VALORES MEJORADOS PARA TESTING:
         JSpinner instructionsSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 50, 5));
         JSpinner exceptionSpinner = new JSpinner(new SpinnerNumberModel(4, 2, 10, 1));
         JSpinner completionSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 5, 1));
@@ -415,8 +425,11 @@ private void setupEventHandlers() {
     }
     
     private void updateGUI() {
+        // SwingUtilities.invokeLater es una buena práctica, aunque el Timer ya usa el EDT
         SwingUtilities.invokeLater(() -> {
             
+            // Todos estos métodos get...Snapshot() ahora leen el caché
+            // o usan locks muy rápidos. No bloquearán la GUI.
             
             long cycle = scheduler.getGlobalCycleSnapshot();
             PCB p = scheduler.getCurrentProcessSnapshot();
@@ -431,14 +444,13 @@ private void setupEventHandlers() {
             cpuStateLabel.setText(cpuIdle ? "Modo Kernel" : "Modo Usuario");
             algorithmLabel.setText(alg.toString());
             
-            // Actualiza las tablas usando los snapshots (que vienen del caché)
+            // Actualizar tablas usando los snapshots (que vienen del caché)
             updateTableFromCustomList(newQueueTable, scheduler.getNewQueueSnapshot());
             updateTable(readyQueueTable, scheduler.getReadyQueueSnapshot());
             updateTableFromCustomList(blockedQueueTable, scheduler.getBlockedQueueSnapshot());
             updateTableFromCustomList(suspendedQueueTable, scheduler.getSuspendedQueueSnapshot());
             updateTableFromCustomList(terminatedTable, scheduler.getTerminatedQueueSnapshot());
             
-<<<<<<< Updated upstream
             if (osRunning) {
                 // Usar un bucle for estándar para CustomList
                 for (int i = 0; i < activeMetricsWindows.size(); i++) {
@@ -450,9 +462,6 @@ private void setupEventHandlers() {
             }
             
             // Actualizar métricas
-=======
-            // Actualiza las métricas
->>>>>>> Stashed changes
             throughputLabel.setText(String.format("%.2f proc/s", metrics.get("Throughput")));
             cpuUtilizationLabel.setText(String.format("%.1f %%", metrics.get("CPU_Utilization") * 100));
             avgWaitTimeLabel.setText(String.format("%.2f ciclos", metrics.get("Avg_Wait_Time")));
@@ -464,6 +473,7 @@ private void setupEventHandlers() {
         DefaultTableModel model = (DefaultTableModel) table.getModel();
         model.setRowCount(0);
         
+        // Es seguro iterar 'processList' porque es una copia (snapshot)
         for (int i = 0; i < processList.size(); i++) {
         PCB p = processList.get(i);
         model.addRow(new Object[]{
@@ -478,6 +488,7 @@ private void setupEventHandlers() {
         DefaultTableModel model = (DefaultTableModel) table.getModel();
         model.setRowCount(0);
         
+        // Es seguro iterar 'processes' porque es una copia (snapshot)
         for (Object obj : processes) {
             if (obj instanceof PCB) {
                 PCB p = (PCB) obj;
@@ -495,9 +506,10 @@ private void setupEventHandlers() {
      * @param spinnerListener El listener del spinner, para removerlo temporalmente.
      */
     private void convertTimeUnits(javax.swing.event.ChangeListener spinnerListener) {
+        // --- 1. REMOVER EL LISTENER ---
         cycleDurationSpinner.removeChangeListener(spinnerListener);
 
-        // Obtiene el estado actual
+        // Obtener el estado actual
         int currentValue = (Integer) cycleDurationSpinner.getValue();
         String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
         SpinnerNumberModel model = (SpinnerNumberModel) cycleDurationSpinner.getModel();
@@ -505,22 +517,22 @@ private void setupEventHandlers() {
         int newDurationMs;
 
         if ("s".equals(selectedUnit)) {
-            // Se cambia A SEGUNDOS
+            // --- Se cambió A SEGUNDOS (el valor actual estaba en ms) ---
             int newValueInSeconds = Math.max(1, currentValue / 1000);
             
-            // Configura el spinner para segundos (min=1s, max=10s, step=1s)
+            // Configurar el spinner para segundos (min=1s, max=10s, step=1s)
             model.setMinimum(1);
             model.setMaximum(10);
             model.setStepSize(1);
-            model.setValue(newValueInSeconds); // Actualiza el valor
+            model.setValue(newValueInSeconds); // Actualizar el valor
             
             newDurationMs = newValueInSeconds * 1000;
 
         } else {
-            // --- Se cambia A MILISEGUNDOS
+            // --- Se cambió A MILISEGUNDOS (el valor actual estaba en s) ---
             int newValueInMs = currentValue * 1000;
 
-            // Configura el spinner para milisegundos (min=100ms, max=10000ms, step=100ms)
+            // Configurar el spinner para milisegundos (min=100ms, max=10000ms, step=100ms)
             model.setMinimum(100);
             model.setMaximum(10000);
             model.setStepSize(100);
@@ -529,29 +541,24 @@ private void setupEventHandlers() {
             newDurationMs = newValueInMs;
         }
 
-        // Informa al scheduler del valor (siempre en ms)
+        // Informar al scheduler del valor (siempre en ms)
         scheduler.setCycleDuration(newDurationMs);
         log("Unidad de ciclo cambiada a: " + cycleDurationSpinner.getValue() + " " + selectedUnit);
 
+        // --- 2. VOLVER A AGREGAR EL LISTENER ---
         cycleDurationSpinner.addChangeListener(spinnerListener);
     }
     
     private void log(String message) {
         SwingUtilities.invokeLater(() -> {
+            // Usamos el snapshot para el ciclo global
             logArea.append("Ciclo " + scheduler.getGlobalCycleSnapshot() + ": " + message + "\n");
             logArea.setCaretPosition(logArea.getDocument().getLength());
         });
     }
 
-     /**
-     * Esta función guarda en un CSV la duración del ciclo y en otro CSV los parametros de los procesos terminados. 
-     * 
-     */
     private void saveCycleDurationToCSV() {
         String filePath = "src//archivos//cicloguardado.csv";
-        String terminatedFilePath = "src//archivos//procesos_terminados.csv";
-        
-        // Guarda la duración del ciclo
         try (java.io.BufferedWriter writer = new java.io.BufferedWriter(new java.io.FileWriter(filePath))) {
             writer.write("cycleDuration;" + scheduler.getCycleDuration());
             writer.newLine();
@@ -559,98 +566,27 @@ private void setupEventHandlers() {
         } catch (Exception ex) {
             log("Error al guardar la duración de ciclo: " + ex.getMessage());
         }
-        
-        // Guarda los procesos terminados
-        try (java.io.BufferedWriter procWriter = new java.io.BufferedWriter(new java.io.FileWriter(terminatedFilePath))) {
-            procWriter.write("ID;Nombre;Estado;PC;MAR;InstruccionesRestantes;Tipo;Prioridad;Memoria");
-            procWriter.newLine();
+    }
 
-            CustomList<PCB> terminatedList = scheduler.getTerminatedQueueSnapshot();
-            for (int i = 0; i < terminatedList.size(); i++) {
-                PCB p = terminatedList.get(i);
-                procWriter.write(
-                    p.getId() + ";" +
-                    p.getName() + ";" +
-                    p.getState() + ";" +
-                    p.getProgramCounter() + ";" +
-                    p.getMAR() + ";" +
-                    p.getRemainingInstructions() + ";" +
-                    p.getType() + ";" +
-                    p.getPriority() + ";" +
-                    p.getMemorySize()
-                );
-                procWriter.newLine();
+    private void loadCycleDurationToCSV() {
+    String filePath = "src//archivos//cicloguardado.csv";
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(filePath))) {
+            String line = reader.readLine();
+            if (line != null && line.startsWith("cycleDuration")) {
+                String[] parts = line.split(";");
+                int loadedDuration = Integer.parseInt(parts[1]);
+                scheduler.setCycleDuration(loadedDuration);
+                cycleDurationSpinner.setValue(loadedDuration); // Actualiza el spinner
+                log("Duración de ciclo cargada desde " + filePath + ": " + loadedDuration + " ms");
+            } else {
+                log("No se encontró la duración de ciclo en el archivo.");
             }
-            log("Procesos terminados guardados en " + terminatedFilePath);
         } catch (Exception ex) {
-            log("Error al guardar procesos terminados: " + ex.getMessage());
+            log("Error al cargar la duración de ciclo: " + ex.getMessage());
         }
     }
-<<<<<<< Updated upstream
     
     public void removeMetricsWindow(MetricsDisplayGUI window) {
         activeMetricsWindows.remove(window);
-=======
-
-     /**
-     * Esta función carga en el programa los datos de los dos CSV para la duración del ciclo y los procesos terminados.
-     * 
-     */
-    private void loadCycleDurationToCSV() {
-        String filePath = "src//archivos//cicloguardado.csv";
-        String terminatedFilePath = "src//archivos//procesos_terminados.csv";
-        
-            // carga la duración del ciclo
-            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(filePath))) {
-                String line = reader.readLine();
-                if (line != null && line.startsWith("cycleDuration")) {
-                    String[] parts = line.split(";");
-                    int loadedDuration = Integer.parseInt(parts[1]);
-                    scheduler.setCycleDuration(loadedDuration);
-                    cycleDurationSpinner.setValue(loadedDuration); // Actualiza el spinner
-                    log("Duración de ciclo cargada desde " + filePath + ": " + loadedDuration + " ms");
-                } else {
-                    log("No se encontró la duración de ciclo en el archivo.");
-                }
-            } catch (Exception ex) {
-                log("Error al cargar la duración de ciclo: " + ex.getMessage());
-            }
-            
-            // carga los procesos terminados
-            try (java.io.BufferedReader procReader = new java.io.BufferedReader(new java.io.FileReader(terminatedFilePath))) {
-                String header = procReader.readLine(); // Salta el encabezado
-                String line;
-                CustomList<PCB> loadedTerminated = new CustomList<>();
-                while ((line = procReader.readLine()) != null) {
-                    if (line.trim().isEmpty()) continue;
-                    String[] parts = line.split(";");
-                    String name = parts[1];
-                    ProcessState state = ProcessState.valueOf(parts[2]);
-                    int pc = Integer.parseInt(parts[3]);
-                    int mar = Integer.parseInt(parts[4]);
-                    int remaining = Integer.parseInt(parts[5]);
-                    ProcessType type = ProcessType.valueOf(parts[6]);
-                    int priority = Integer.parseInt(parts[7]);
-                    int memorySize = Integer.parseInt(parts[8]);
-                    
-                    // Se crea un PCB nuevo para insertar los datos
-                    PCB pcb = new PCB(name, type, remaining, 1, 1, priority, memorySize, scheduler);
-                    pcb.setState(state);
-                    pcb.setProgramCounter(pc);
-                    pcb.setMAR(mar);
-                    pcb.setRemainingInstructions(remaining);
-                    loadedTerminated.add(pcb);
-                }
-                // Reemplaza la cola de terminados en el scheduler
-                scheduler.getTerminatedQueueSnapshot().clear();
-                for (int i = 0; i < loadedTerminated.size(); i++) {
-                    scheduler.getTerminatedQueueSnapshot().add(loadedTerminated.get(i));
-                }
-                updateTableFromCustomList(terminatedTable, scheduler.getTerminatedQueueSnapshot());
-                log("Procesos terminados cargados desde " + terminatedFilePath);
-            }catch (Exception ex) {
-                log("Error al cargar procesos terminados: " + ex.getMessage());
-            }
->>>>>>> Stashed changes
     }
 }
