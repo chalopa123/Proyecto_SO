@@ -35,6 +35,7 @@ public class PCB implements Comparable<PCB> {
     private final int priority;
     private final int memorySize;
     private final Scheduler scheduler;
+    private long lastReadyQueueTime;
     
     public PCB(String name, ProcessType type, int totalInstructions, 
                int cyclesToException, int cyclesToCompleteException,
@@ -53,6 +54,7 @@ public class PCB implements Comparable<PCB> {
         this.mar = 0;
         this.creationTime = System.currentTimeMillis();
         this.scheduler = scheduler;
+        this.lastReadyQueueTime = 0;
     }
     
     // Getters y Setters
@@ -81,6 +83,9 @@ public class PCB implements Comparable<PCB> {
     public long getCreationTime() { return creationTime; }
     public int getPriority() { return priority; }
     public int getMemorySize() { return memorySize; }
+    public long getLastReadyQueueTime() { return lastReadyQueueTime; }
+    public void setLastReadyQueueTime(long time) { this.lastReadyQueueTime = time; }
+    public int getServiceTime() { return totalInstructions;}
     
     /**
      * Lógica de ejecución 
@@ -96,7 +101,6 @@ public class PCB implements Comparable<PCB> {
         mar = programCounter;
         remainingInstructions--;
         
-        // CORRECCIÓN: Ambos tipos de procesos pueden generar excepciones
         if (cyclesToException > 0 && 
             programCounter > 0 && 
             programCounter % cyclesToException == 0 &&
@@ -131,13 +135,12 @@ public class PCB implements Comparable<PCB> {
                 try {
                     System.out.println("Iniciando operación de excepción para: " + name);
                     
-                    int totalTime = cyclesToCompleteException * 100;
                     for (int i = 0; i < cyclesToCompleteException; i++) {
-                        Thread.sleep(100); 
+                        Thread.sleep(scheduler.getCycleDuration());
 
                         setMAR(getMAR() + 1); 
 
-                        System.out.println("Progreso excepción " + name + ": " + (i + 1) + "/" + cyclesToCompleteException);
+                        System.out.println("Progreso excepción " + name + ": " + (i+1) + "/" + cyclesToCompleteException);
                     }
                     
                     System.out.println("Operación de excepción completada para: " + name);
