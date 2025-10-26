@@ -61,6 +61,11 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
     private long totalWaitTime;
     private long totalResponseTime;
     private final long startTime;
+    private CustomList<Integer> cpuUsageHistory = new CustomList<>(); // 0:Idle, 1:Busy
+    private CustomList<Integer> globalCycleHistory = new CustomList<>();
+    
+    private volatile CustomList<Integer> cpuUsageHistoryCache = new CustomList<>();
+    private volatile CustomList<Integer> globalCycleHistoryCache = new CustomList<>();
 
     public Scheduler() {
         this.newQueue = new CustomList<>();
@@ -85,6 +90,11 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
         mutex.lock();
         try {
             this.isOperatingSystemRunning = true;
+            
+            cpuUsageHistory.clear();
+            globalCycleHistory.clear();
+            cpuUsageHistoryCache.clear();
+            globalCycleHistoryCache.clear();
             
             if (this.exceptionHandlerThread == null || !this.exceptionHandlerThread.isAlive()) {
                 this.exceptionHandlerThread = new ExceptionHandlerThread(this);
@@ -132,6 +142,10 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
         // No necesitamos un lock aquí, solo seteamos un flag volatile
         // y llamamos a interrupt()
         this.isOperatingSystemRunning = false; 
+        cpuUsageHistory.clear();
+        globalCycleHistory.clear();
+        cpuUsageHistoryCache.clear();
+        globalCycleHistoryCache.clear();
         
         if (this.exceptionHandlerThread != null) {
             this.exceptionHandlerThread.stopHandler();
@@ -153,6 +167,10 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
                 return;
             }
             globalCycle++;
+            
+            globalCycleHistory.add((int)globalCycle);
+            cpuUsageHistory.add(this.isCpuIdle ? 0 : 1);
+            
             longTermScheduler();
             mediumTermScheduler();
             
@@ -379,6 +397,8 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
         this.blockedQueueCache = createSnapshot(blockedQueue);
         this.suspendedQueueCache = createSnapshot(suspendedQueue);
         this.terminatedQueueCache = createSnapshot(terminatedProcesses);
+        this.cpuUsageHistoryCache = createSnapshot(cpuUsageHistory);
+        this.globalCycleHistoryCache = createSnapshot(globalCycleHistory);
     }
 
     // --- MÉTODOS "SNAPSHOT" SEGUROS PARA LA GUI (NO BLOQUEANTES) ---
@@ -453,8 +473,16 @@ public class Scheduler implements Runnable { // <-- CAMBIO: Implementa Runnable
         }
     }
     
-    private CustomList<PCB> createSnapshot(CustomList<PCB> original) {
-        CustomList<PCB> snapshot = new CustomList<>();
+    public CustomList<Integer> getCpuUsageHistory() {
+        return cpuUsageHistoryCache; // Devuelve el caché volátil
+    }
+    
+    public CustomList<Integer> getGlobalCycleHistory() {
+        return globalCycleHistoryCache; // Devuelve el caché volátil
+    }
+    
+    private <T> CustomList<T> createSnapshot(CustomList<T> original) {
+        CustomList<T> snapshot = new CustomList<>();
         for (int i = 0; i < original.size(); i++) {
             snapshot.add(original.get(i));
         }

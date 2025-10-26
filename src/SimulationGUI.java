@@ -37,6 +37,7 @@ public class SimulationGUI extends JFrame {
     private JTable suspendedQueueTable;
     private JTable terminatedTable;
     private JTextArea logArea;
+    private CustomList<MetricsDisplayGUI> activeMetricsWindows;
     private JComboBox<SchedulingAlgorithm> algorithmComboBox;
     private JSpinner cycleDurationSpinner;
     private JComboBox<String> timeUnitComboBox;
@@ -45,6 +46,8 @@ public class SimulationGUI extends JFrame {
     private JButton addProcessButton;
     private JButton saveCycleButton;
     private JButton loadCycleButton;
+    private JButton openGraphsButton;
+    private JButton openExtendedQueuesButton;
     private int processCounter = 1;
     
     // Componentes de métricas (asegúrate de que estén declarados)
@@ -56,6 +59,7 @@ public class SimulationGUI extends JFrame {
 
     public SimulationGUI() {
         this.scheduler = new Scheduler();
+        this.activeMetricsWindows = new CustomList<>();
         initializeGUI(); // Este método debe inicializar los JLabels de métricas
         setupEventHandlers();
         cycleDurationSpinner.setValue(1000);
@@ -181,6 +185,11 @@ public class SimulationGUI extends JFrame {
         controlPanel.add(addProcessButton);
         controlPanel.add(saveCycleButton);
         controlPanel.add(loadCycleButton);
+        openGraphsButton = new JButton("Abrir Gráficos");
+        controlPanel.add(openGraphsButton);
+
+        openExtendedQueuesButton = new JButton("Abrir Colas Ext.");
+        controlPanel.add(openExtendedQueuesButton);
         
         logArea = new JTextArea(10, 80);
         logArea.setEditable(false);
@@ -274,7 +283,11 @@ private void setupEventHandlers() {
     stopButton.addActionListener((e) -> {
         simulationTimer.stop(); // Detiene el refresco de la GUI
         scheduler.shutdown(); // Detiene el hilo de simulación
-        
+        for (int i = 0; i < activeMetricsWindows.size(); i++) {
+            MetricsDisplayGUI metricsWindow = activeMetricsWindows.get(i);
+            metricsWindow.dispatchEvent(new WindowEvent(metricsWindow, WindowEvent.WINDOW_CLOSING));
+        }
+        activeMetricsWindows.clear();
         startButton.setEnabled(true);   // Habilitar botón
         stopButton.setEnabled(false); // Deshabilitar botón
         log("Simulación detenida por el usuario.");
@@ -309,7 +322,7 @@ private void setupEventHandlers() {
                 scheduler.setCycleDuration(newDurationMs); 
                 log("Duración del ciclo cambiada a: " + newDurationValue + " " + selectedUnit);
             }
-        };
+    };
         
         // 2. Asignar el listener al spinner
         cycleDurationSpinner.addChangeListener(spinnerListener);
@@ -318,6 +331,18 @@ private void setupEventHandlers() {
         timeUnitComboBox.addActionListener((e) -> {
             // Llama al método helper y le PASA el listener para que lo remueva
             convertTimeUnits(spinnerListener);
+        }); 
+        
+        openGraphsButton.addActionListener(e -> {
+            MetricsDisplayGUI graphsWindow = new MetricsDisplayGUI("Gráficos de Rendimiento", "Gráficos", this);
+            activeMetricsWindows.add(graphsWindow);
+            graphsWindow.setVisible(true);
+        });
+
+        openExtendedQueuesButton.addActionListener(e -> {
+            MetricsDisplayGUI queuesWindow = new MetricsDisplayGUI("Vistas Extendidas de Colas", "Colas Extendidas", this);
+            activeMetricsWindows.add(queuesWindow);
+            queuesWindow.setVisible(true);
         });
     
     // 4. Estado inicial de los botones
@@ -425,6 +450,16 @@ private void setupEventHandlers() {
             updateTableFromCustomList(blockedQueueTable, scheduler.getBlockedQueueSnapshot());
             updateTableFromCustomList(suspendedQueueTable, scheduler.getSuspendedQueueSnapshot());
             updateTableFromCustomList(terminatedTable, scheduler.getTerminatedQueueSnapshot());
+            
+            if (osRunning) {
+                // Usar un bucle for estándar para CustomList
+                for (int i = 0; i < activeMetricsWindows.size(); i++) {
+                    MetricsDisplayGUI metricsWindow = activeMetricsWindows.get(i);
+                    if (metricsWindow != null) {
+                        metricsWindow.updateDisplay(scheduler);
+                    }
+                }
+            }
             
             // Actualizar métricas
             throughputLabel.setText(String.format("%.2f proc/s", metrics.get("Throughput")));
@@ -549,5 +584,9 @@ private void setupEventHandlers() {
         } catch (Exception ex) {
             log("Error al cargar la duración de ciclo: " + ex.getMessage());
         }
+    }
+    
+    public void removeMetricsWindow(MetricsDisplayGUI window) {
+        activeMetricsWindows.remove(window);
     }
 }
