@@ -72,6 +72,8 @@ public class WelcomeGUI extends JFrame {
         configPanel.add(new JLabel("Duración de Ciclo Inicial:"));
         JPanel durationPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         cycleDurationSpinner = new JSpinner(new SpinnerNumberModel(500, 100, 5000, 100));
+        JSpinner.NumberEditor durationEditor = new JSpinner.NumberEditor(cycleDurationSpinner, "#");
+        cycleDurationSpinner.setEditor(durationEditor);
         timeUnitComboBox = new JComboBox<>(new String[]{"ms", "s"});
         durationPanel.add(cycleDurationSpinner);
         durationPanel.add(timeUnitComboBox);
@@ -102,8 +104,8 @@ public class WelcomeGUI extends JFrame {
     private void loadDefaultSettings() {
         totalMemorySpinner.setValue(1024);
         algorithmComboBox.setSelectedItem(SchedulingAlgorithm.FCFS);
-        cycleDurationSpinner.setValue(500);
-        timeUnitComboBox.setSelectedItem("ms");
+        timeUnitComboBox.setSelectedItem("ms");        
+        cycleDurationSpinner.setValue(1000); 
     }
 
     private void initEventHandlers() {
@@ -116,9 +118,16 @@ public class WelcomeGUI extends JFrame {
         // --- 3.4.2. Cargar Configuración ---
         loadButton.addActionListener(e -> loadConfiguration());
         
-        // --- 3.3. Lógica del Spinner de Tiempo (Movida de SimulationGUI) ---
-        ActionListener timeUnitListener = (e) -> convertTimeUnits();
-        timeUnitComboBox.addActionListener(timeUnitListener);
+        javax.swing.event.ChangeListener spinnerListener = (e) -> {
+            // El valor se lee al Iniciar/Guardar
+        };
+        cycleDurationSpinner.addChangeListener(spinnerListener); // Asignarlo
+
+        // 2. Listener para el COMBOBOX
+        timeUnitComboBox.addActionListener((e) -> {
+            // Llamar a convertTimeUnits, pasándole el listener del spinner
+            convertTimeUnits(spinnerListener);
+        });
     }
 
     private void startSimulation() {
@@ -189,7 +198,6 @@ public class WelcomeGUI extends JFrame {
                 String filePath = fileChooser.getSelectedFile().getPath();
                 Map<String, String> configMap = configManager.loadConfig(filePath);
                 
-                // Aplicar configuración a la GUI
                 int memory = Integer.parseInt(configMap.get("totalMemory"));
                 SchedulingAlgorithm algorithm = SchedulingAlgorithm.valueOf(configMap.get("startAlgorithm"));
                 int durationMs = Integer.parseInt(configMap.get("cycleDuration"));
@@ -197,14 +205,29 @@ public class WelcomeGUI extends JFrame {
                 totalMemorySpinner.setValue(memory);
                 algorithmComboBox.setSelectedItem(algorithm);
                 
-                // Revertir a 's' si es divisible por 1000 y > 0
+                // --- INICIO DE LA LÓGICA CORREGIDA ---
+                SpinnerNumberModel model = (SpinnerNumberModel) cycleDurationSpinner.getModel();
+
                 if (durationMs >= 1000 && durationMs % 1000 == 0) {
-                    timeUnitComboBox.setSelectedItem("s");
-                    cycleDurationSpinner.setValue(durationMs / 1000);
+                    // Cargar como SEGUNDOS
+                    int sValue = durationMs / 1000;
+                    timeUnitComboBox.setSelectedItem("s"); // Esto dispara convertTimeUnits
+                    
+                    // Re-obtener el modelo por si convertTimeUnits lo cambió
+                    model = (SpinnerNumberModel) cycleDurationSpinner.getModel();
+                    // Forzar el valor a estar DENTRO del rango (max 10s)
+                    model.setValue(Math.min(sValue, 10)); 
+
                 } else {
-                    timeUnitComboBox.setSelectedItem("ms");
-                    cycleDurationSpinner.setValue(durationMs);
+                    // Cargar como MILISEGUNDOS
+                    timeUnitComboBox.setSelectedItem("ms"); // Esto dispara convertTimeUnits
+                    
+                    // Re-obtener el modelo por si convertTimeUnits lo cambió
+                    model = (SpinnerNumberModel) cycleDurationSpinner.getModel();
+                    // Forzar el valor a estar DENTRO del rango (max 10000ms)
+                    model.setValue(Math.min(durationMs, 10000));
                 }
+                // --- FIN DE LA LÓGICA CORREGIDA ---
                 
                 JOptionPane.showMessageDialog(this, "Configuración cargada exitosamente.");
             } catch (Exception ex) {
@@ -217,35 +240,46 @@ public class WelcomeGUI extends JFrame {
     /**
      * Lógica de conversión de tiempo.
      */
-    private void convertTimeUnits() {
-        // Obtenemos el listener para removerlo temporalmente
-        ActionListener listener = cycleDurationSpinner.getEditor().getComponent(0).getListeners(ActionListener.class)[0];
-        if (listener != null) {
-            cycleDurationSpinner.removeActionListener(listener);
-        }
-        
+    private void convertTimeUnits(javax.swing.event.ChangeListener spinnerListener) {
+        cycleDurationSpinner.removeChangeListener(spinnerListener);
+
         int currentValue = (Integer) cycleDurationSpinner.getValue();
         String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
         SpinnerNumberModel model = (SpinnerNumberModel) cycleDurationSpinner.getModel();
+        int newValue;
 
         if ("s".equals(selectedUnit)) {
-            // Se cambió A SEGUNDOS (valor estaba en ms)
-            int newValueInSeconds = Math.max(1, currentValue / 1000);
+            // --- Se cambió A SEGUNDOS ---
+            newValue = Math.max(1, currentValue / 1000);
+            
             model.setMinimum(1);
-            model.setMaximum(10);
+            model.setMaximum(10); // Límite de 10s
             model.setStepSize(1);
-            model.setValue(newValueInSeconds);
+            
+            // Forzar el valor a estar DENTRO del nuevo rango
+            if (newValue > 10) {
+                newValue = 10;
+            }
+
         } else {
-            // Se cambió A MILISEGUNDOS (valor estaba en s)
-            int newValueInMs = currentValue * 1000;
+            // --- Se cambió A MILISEGUNDOS ---
+            newValue = currentValue * 1000;
+
             model.setMinimum(100);
-            model.setMaximum(10000);
+            model.setMaximum(10000); // Límite de 10000ms
             model.setStepSize(100);
-            model.setValue(newValueInMs);
+            
+            // Forzar el valor a estar DENTRO del nuevo rango
+            if (newValue > 10000) {
+                newValue = 10000;
+            }
+            if (newValue < 100) {
+                newValue = 100;
+            }
         }
         
-        if (listener != null) {
-            cycleDurationSpinner.addActionListener(listener);
-        }
+        model.setValue(newValue); // Asignar el valor ya verificado
+
+        cycleDurationSpinner.addChangeListener(spinnerListener);
     }
 }

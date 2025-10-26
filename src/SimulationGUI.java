@@ -312,55 +312,54 @@ private void setupEventHandlers() {
         }
     });
     
-    javax.swing.event.ChangeListener spinnerListener = (e) -> {
-            int newDurationValue = (Integer) cycleDurationSpinner.getValue();
-            String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
-            int newDurationMs; // El Scheduler siempre funciona en ms
-
-            if ("s".equals(selectedUnit)) {
-                newDurationMs = newDurationValue * 1000;
-            } else {
-                newDurationMs = newDurationValue;
-            }
-
-            if (newDurationMs > 0) {
-                scheduler.setCycleDuration(newDurationMs); 
-                log("Duración del ciclo cambiada a: " + newDurationValue + " " + selectedUnit);
-            }
-    };
-        
-        // 2. Asignar el listener al spinner
-        // (En setupEventHandlers)
-// Reemplaza toda la lógica de spinnerListener y timeUnitComboBox
-// por el listener simple original:
     cycleDurationSpinner.addChangeListener((e) -> {
-        int newDuration = (Integer) cycleDurationSpinner.getValue();
-        if ("s".equals(timeUnitComboBox.getSelectedItem())) {
-            newDuration *= 1000;
+        int newDurationValue = (Integer) cycleDurationSpinner.getValue();
+        String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
+        int newDurationMs;
+
+        if ("s".equals(selectedUnit)) {
+            newDurationMs = newDurationValue * 1000;
+        } else {
+            newDurationMs = newDurationValue;
         }
-        if (newDuration > 0) {
-            scheduler.setCycleDuration(newDuration); 
-            log("Duración del ciclo cambiada a: " + cycleDurationSpinner.getValue() + " " + timeUnitComboBox.getSelectedItem());
+
+        if (newDurationMs > 0) {
+            scheduler.setCycleDuration(newDurationMs); 
+            log("Duración del ciclo cambiada a: " + newDurationValue + " " + selectedUnit);
         }
     });
 
+    // 2. Crear un ActionListener simple para el COMBOBOX
     timeUnitComboBox.addActionListener((e) -> {
-        // Este listener ahora solo necesita forzar una actualización del spinner
-        // (Esta es una lógica simplificada, la conversión manual se la dejamos al WelcomeGUI)
-        cycleDurationSpinner.getEditor().getComponent(0).getListeners(ActionListener.class)[0].actionPerformed(null);
+        // Simplemente re-ejecuta la misma lógica que el spinner
+        // para actualizar la duración
+        int newDurationValue = (Integer) cycleDurationSpinner.getValue();
+        String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
+        int newDurationMs;
+
+        if ("s".equals(selectedUnit)) {
+            newDurationMs = newDurationValue * 1000;
+        } else {
+            newDurationMs = newDurationValue;
+        }
+
+        if (newDurationMs > 0) {
+            scheduler.setCycleDuration(newDurationMs); 
+            log("Duración del ciclo cambiada a: " + newDurationValue + " " + selectedUnit);
+        }
     });
         
-        openGraphsButton.addActionListener(e -> {
-            MetricsDisplayGUI graphsWindow = new MetricsDisplayGUI("Gráficos de Rendimiento", "Gráficos", this);
-            activeMetricsWindows.add(graphsWindow);
-            graphsWindow.setVisible(true);
-        });
+    openGraphsButton.addActionListener(e -> {
+        MetricsDisplayGUI graphsWindow = new MetricsDisplayGUI("Gráficos de Rendimiento", "Gráficos", this);
+        activeMetricsWindows.add(graphsWindow);
+        graphsWindow.setVisible(true);
+    });
 
-        openExtendedQueuesButton.addActionListener(e -> {
-            MetricsDisplayGUI queuesWindow = new MetricsDisplayGUI("Vistas Extendidas de Colas", "Colas Extendidas", this);
-            activeMetricsWindows.add(queuesWindow);
-            queuesWindow.setVisible(true);
-        });
+    openExtendedQueuesButton.addActionListener(e -> {
+        MetricsDisplayGUI queuesWindow = new MetricsDisplayGUI("Vistas Extendidas de Colas", "Colas Extendidas", this);
+        activeMetricsWindows.add(queuesWindow);
+        queuesWindow.setVisible(true);
+    });
     
     // 4. Estado inicial de los botones
     stopButton.setEnabled(false);

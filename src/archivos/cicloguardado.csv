@@ -1,1 +1,3 @@
-cycleDuration;400
+totalMemory;1024
+startAlgorithm;PRIORITY
+cycleDuration;10000
