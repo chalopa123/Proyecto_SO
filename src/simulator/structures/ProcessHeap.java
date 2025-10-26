@@ -1,3 +1,5 @@
+package simulator.structures;
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
@@ -7,11 +9,12 @@
  *
  * @author chalo
  */
+import simulator.core.SchedulingAlgorithm;
+import simulator.core.PCB;
 import java.util.Arrays;
 
 /**
- * Implementación de un Montículo (Heap) para la gestión de procesos
- * Esta estructura reemplaza el uso de ArrayList/LinkedList según los requerimientos
+ * Implementación de Montículo (Heap) 
  */
 public class ProcessHeap {
     private PCB[] heap;
@@ -39,8 +42,8 @@ public class ProcessHeap {
     }
     
     /**
-     * Inserta un proceso en el montículo
-     * @param process el proceso a insertar
+     * Inserta proceso en el montículo
+     * @param process proceso a insertar
      */
     public void insert(PCB process) {
         if (size == heap.length) {
@@ -53,7 +56,7 @@ public class ProcessHeap {
     }
     
     /**
-     * Extrae el proceso con mayor/menor prioridad según el tipo de montículo
+     * Extrae proceso con mayor o menor prioridad según el tipo de montículo
      * @return el proceso extraído o null si está vacío
      */
     public PCB extract() {
@@ -82,9 +85,9 @@ public class ProcessHeap {
     }
     
     /**
-     * Elimina un proceso específico del montículo
+     * Elimina proceso específico del montículo
      * @param process el proceso a eliminar
-     * @return true si se eliminó, false en caso contrario
+     * @return true si se eliminó, false caso contrario
      */
     public boolean remove(PCB process) {
         for (int i = 0; i < size; i++) {
@@ -161,7 +164,7 @@ public class ProcessHeap {
                 result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
                 break;
             default:
-                result = 0; // Caso por defecto
+                result = 0; 
                 break;
         }
         
@@ -179,8 +182,6 @@ public class ProcessHeap {
     }
     
     public Object[] toArray() {
-        // Devuelve una copia del array que contiene SOLO los elementos
-        // desde el índice 0 hasta size.
         return java.util.Arrays.copyOf(heap, size);
     }
     

@@ -1,3 +1,5 @@
+package simulator.ui;
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
@@ -8,33 +10,31 @@
  * @author chalo
  */
 
-// Archivo: MetricsDisplayGUI.java
-// (Sin 'package' al inicio)
 
+import simulator.structures.CustomList;
+import simulator.core.PCB;
+import simulator.core.Scheduler;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-// (No debe haber imports de java.util.List o ArrayList)
 
 public class MetricsDisplayGUI extends JFrame {
 
     private String windowType;
     private JTabbedPane tabbedPane;
     private SimulationGUI mainGUI;
-    
-    // --- Variables para los componentes dinámicos ---
-    private CpuUsageGraphPanel cpuGraphPanel; // Panel para el gráfico de CPU
-    private JTable detailedReadyTable;        // Tabla para la cola de listos
-    private DefaultTableModel readyTableModel;  // Modelo de la tabla de listos
+
+    private CpuUsageGraphPanel cpuGraphPanel; 
+    private JTable detailedReadyTable;        
+    private DefaultTableModel readyTableModel;  
     private TerminatedGraphPanel termGraphPanel;
 
     public MetricsDisplayGUI(String title, String type, SimulationGUI mainGUI) {
         super(title);
         this.windowType = type;
         this.mainGUI = mainGUI;
-        // (Ya no necesitamos la lista 'dynamicComponents')
 
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setSize(800, 600);
@@ -48,7 +48,7 @@ public class MetricsDisplayGUI extends JFrame {
             }
         });
 
-        initComponents(); // Este método ahora crea los componentes reales
+        initComponents(); 
     }
 
     private void initComponents() {
@@ -57,27 +57,20 @@ public class MetricsDisplayGUI extends JFrame {
         add(tabbedPane, BorderLayout.CENTER);
 
         if ("Gráficos".equals(windowType)) {
-            // --- LÓGICA DE GRÁFICOS IMPLEMENTADA ---
-            
-            // 1. Pestaña de Uso de CPU
-            cpuGraphPanel = new CpuUsageGraphPanel(); // <-- Usamos la nueva clase
+            cpuGraphPanel = new CpuUsageGraphPanel(); 
             tabbedPane.addTab("Uso CPU", cpuGraphPanel);
-            
-            // 2. Pestaña de Procesos Terminados (Placeholder)
-            // (Puedes implementar esto después si quieres, similar a la tabla de listos)
-            termGraphPanel = new TerminatedGraphPanel(); // <-- CREAR EL NUEVO PANEL
+ 
+            termGraphPanel = new TerminatedGraphPanel(); 
             tabbedPane.addTab("Procesos Terminados", termGraphPanel);
             
         } else if ("Colas Extendidas".equals(windowType)) {
-            // --- LÓGICA DE TABLA IMPLEMENTADA ---
-            
-            // 1. Pestaña de Cola de Listos Detallada
+
             String[] columnNames = {"ID", "Nombre", "Estado", "PC", "Prioridad", "Memoria", "Inst. Restantes"};
             
             readyTableModel = new DefaultTableModel(columnNames, 0) {
                 @Override
                 public boolean isCellEditable(int row, int column) {
-                    return false; // Hacer la tabla no editable
+                    return false; 
                 }
             };
             detailedReadyTable = new JTable(readyTableModel);
@@ -88,49 +81,37 @@ public class MetricsDisplayGUI extends JFrame {
     }
 
     /**
-     * Método llamado por la GUI principal para actualizar los componentes.
+     * actualizar los componentes.
      */
     public void updateDisplay(Scheduler scheduler) {
         if ("Gráficos".equals(windowType)) {
-            // Llama al método del panel de gráfico
             updateCpuUsageGraph(scheduler.getCpuUsageHistory());
         
         } else if ("Colas Extendidas".equals(windowType)) {
-            // Llama al método de la tabla de listos
             updateDetailedReadyQueueTable(scheduler.getReadyQueueSnapshot());
             updateTerminatedGraph(scheduler.getTerminatedHistory());
         }
     }
 
-    /**
-     * LÓGICA IMPLEMENTADA:
-     * Actualiza el panel del gráfico de CPU.
-     */
     private void updateCpuUsageGraph(CustomList<Integer> data) {
         if (cpuGraphPanel != null) {
-            cpuGraphPanel.updateData(data); // Pasa los datos al panel para que se redibuje
+            cpuGraphPanel.updateData(data); 
         }
     }
     
     private void updateTerminatedGraph(CustomList<Integer> data) {
         if (termGraphPanel != null) {
-            termGraphPanel.updateData(data); // Pasa los datos al panel
+            termGraphPanel.updateData(data); 
         }
     }
 
-    /**
-     * LÓGICA IMPLEMENTADA:
-     * Actualiza la tabla de la cola de listos detallada.
-     */
     private void updateDetailedReadyQueueTable(Object[] data) {
         if (readyTableModel != null) {
-            readyTableModel.setRowCount(0); // Limpiar la tabla
+            readyTableModel.setRowCount(0); 
             
             for (Object obj : data) {
                 if (obj instanceof PCB) {
                     PCB p = (PCB) obj;
-                    // Añadir la fila con los datos del PCB
-                    // (Usamos los getters de PCB.java)
                     readyTableModel.addRow(new Object[]{
                         p.getId(),
                         p.getName(),
@@ -144,4 +125,4 @@ public class MetricsDisplayGUI extends JFrame {
             }
         }
     }
-} // Cierre final de la clase MetricsDisplayGUI
+} 

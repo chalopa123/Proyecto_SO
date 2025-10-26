@@ -1,3 +1,5 @@
+package simulator.structures;
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
@@ -8,8 +10,6 @@
  * @author chalo
  */
 /**
- * Implementación personalizada de una lista para reemplazar ArrayList
- * Cumple con los requerimientos de no usar librerías de estructuras de datos
  * @param <T> el tipo de elementos en esta lista
  */
 public class CustomList<T> {
@@ -28,8 +28,8 @@ public class CustomList<T> {
     }
     
     /**
-     * Agrega un elemento a la lista
-     * @param element el elemento a agregar
+     * Agrega elemento a la lista
+     * @param element elemento a agregar
      */
     public void add(T element) {
         ensureCapacity();
@@ -45,9 +45,9 @@ public class CustomList<T> {
     }
     
     /**
-     * Elimina un elemento específico de la lista
-     * @param element el elemento a eliminar
-     * @return true si se eliminó, false en caso contrario
+     * Elimina elemento específico de la lista
+     * @param element  elemento a eliminar
+     * @return true si se eliminó, false caso contrario
      */
     public boolean remove(T element) {
         for (int i = 0; i < size; i++) {

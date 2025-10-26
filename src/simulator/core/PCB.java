@@ -1,3 +1,5 @@
+package simulator.core;
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
@@ -11,8 +13,7 @@
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Clase que representa el Bloque de Control de Proceso (PCB)
- * Con correcciones para no bloquear la interfaz y soporte para excepciones CPU Bound
+ * Bloque de Control de Proceso (PCB)
  */
 public class PCB implements Comparable<PCB> {
     private static final AtomicInteger ID_GENERATOR = new AtomicInteger(1);
@@ -82,7 +83,7 @@ public class PCB implements Comparable<PCB> {
     public int getMemorySize() { return memorySize; }
     
     /**
-     * Lógica de ejecución con excepciones para ambos tipos de procesos
+     * Lógica de ejecución 
      * @return 
      */
     public boolean executeInstruction() {
@@ -115,32 +116,26 @@ public class PCB implements Comparable<PCB> {
     }
     
     /**
-     * Generar excepción sin bloquear la interfaz
+     * Generar excepción 
      */
     private void generateException() {
-        // Cambiar estado a BLOQUEADO
         state = ProcessState.BLOCKED;
         
-        // Notificar al scheduler
         if (scheduler != null) {
             this.setState(ProcessState.BLOCKED);
         }
         
-        // CORRECCIÓN: Usar SwingWorker para no bloquear la interfaz
         javax.swing.SwingWorker<Void, Void> worker = new javax.swing.SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() throws Exception {
                 try {
                     System.out.println("Iniciando operación de excepción para: " + name);
                     
-                    // Simular tiempo de operación (más corto para testing)
                     int totalTime = cyclesToCompleteException * 100;
                     for (int i = 0; i < cyclesToCompleteException; i++) {
-                        Thread.sleep(100); // Pequeños intervalos para mantener responsiva la UI
+                        Thread.sleep(100); 
 
-                        // --- AÑADE ESTA LÍNEA ---
-                        setMAR(getMAR() + 1); // Simular acceso a memoria durante E/S
-                        // -----------------------
+                        setMAR(getMAR() + 1); 
 
                         System.out.println("Progreso excepción " + name + ": " + (i + 1) + "/" + cyclesToCompleteException);
                     }
@@ -158,7 +153,6 @@ public class PCB implements Comparable<PCB> {
             
             @Override
             protected void done() {
-                // Desbloquear el proceso cuando termina la excepción
                 if (scheduler != null) {
                     scheduler.unblockProcess(PCB.this);
                 }
