@@ -39,7 +39,8 @@ public class SimulationGUI extends JFrame {
     private JTable newQueueTable;
     private JTable readyQueueTable;
     private JTable blockedQueueTable;
-    private JTable suspendedQueueTable;
+    private JTable blockedSuspendedQueueTable; 
+    private JTable readySuspendedQueueTable;   
     private JTable terminatedTable;
     private JTextArea logArea;
     private CustomList<MetricsDisplayGUI> activeMetricsWindows;
@@ -49,8 +50,6 @@ public class SimulationGUI extends JFrame {
     private JButton startButton;
     private JButton stopButton;
     private JButton addProcessButton;
-    private JButton saveCycleButton;
-    private JButton loadCycleButton;
     private JButton openGraphsButton;
     private JButton openExtendedQueuesButton;
     private int processCounter = 1;
@@ -134,34 +133,39 @@ public class SimulationGUI extends JFrame {
     }
     
     private JPanel createCenterPanel() {
-        JPanel panel = new JPanel(new GridLayout(3, 2, 5, 5));
+        JPanel panel = new JPanel(new GridLayout(3, 2, 5, 5)); // 3 filas, 2 columnas
         
         newQueueTable = createProcessTable();
         JScrollPane newScroll = new JScrollPane(newQueueTable);
         newScroll.setBorder(BorderFactory.createTitledBorder("Cola de Nuevos (NEW)"));
+        panel.add(newScroll); // Fila 1, Col 1
 
         readyQueueTable = createProcessTable();
         JScrollPane readyScroll = new JScrollPane(readyQueueTable);
         readyScroll.setBorder(BorderFactory.createTitledBorder("Cola de Listos (READY)"));
+        panel.add(readyScroll); // Fila 1, Col 2
         
         blockedQueueTable = createProcessTable();
         JScrollPane blockedScroll = new JScrollPane(blockedQueueTable);
         blockedScroll.setBorder(BorderFactory.createTitledBorder("Cola de Bloqueados"));
+        panel.add(blockedScroll); // Fila 2, Col 1
         
-        suspendedQueueTable = createProcessTable();
-        JScrollPane suspendedScroll = new JScrollPane(suspendedQueueTable);
-        suspendedScroll.setBorder(BorderFactory.createTitledBorder("Cola de Suspendidos"));
+        // --- REFACTOR ---
+        blockedSuspendedQueueTable = createProcessTable();
+        JScrollPane blockedSuspScroll = new JScrollPane(blockedSuspendedQueueTable);
+        blockedSuspScroll.setBorder(BorderFactory.createTitledBorder("Bloqueados, Suspendidos"));
+        panel.add(blockedSuspScroll); // Fila 2, Col 2
+        
+        readySuspendedQueueTable = createProcessTable();
+        JScrollPane readySuspScroll = new JScrollPane(readySuspendedQueueTable);
+        readySuspScroll.setBorder(BorderFactory.createTitledBorder("Listos, Suspendidos"));
+        panel.add(readySuspScroll); // Fila 3, Col 1
+        // ---
         
         terminatedTable = createProcessTable();
         JScrollPane terminatedScroll = new JScrollPane(terminatedTable);
         terminatedScroll.setBorder(BorderFactory.createTitledBorder("Procesos Terminados"));
-        
-        panel.add(newScroll);       
-        panel.add(readyScroll);     
-        panel.add(blockedScroll);   
-        panel.add(suspendedScroll); 
-        panel.add(terminatedScroll);
-
+        panel.add(terminatedScroll); // Fila 3, Col 2
         
         return panel;
     }
@@ -256,143 +260,173 @@ public class SimulationGUI extends JFrame {
         table.setAutoCreateRowSorter(true);
         return table;
     }
-    
-    // En SimulationGUI.java
 
-private void setupEventHandlers() {
-    int guiRefreshRate = 33; 
-    simulationTimer = new Timer(guiRefreshRate, (ActionEvent e) -> {
-        updateGUI(); 
-    });
+    private void setupEventHandlers() {
+        int guiRefreshRate = 33; 
+        simulationTimer = new Timer(guiRefreshRate, (ActionEvent e) -> {
+            updateGUI(); 
+        });
 
-    startButton.addActionListener((e) -> {
-        scheduler.start(); 
-        simulationTimer.start(); 
-        
-        startButton.setEnabled(false); // Deshabilitar botón
-        stopButton.setEnabled(true);   // Habilitar botón
-        log("Simulación iniciada.");
-    });
-    
-    stopButton.addActionListener((e) -> {
-        simulationTimer.stop(); 
-        scheduler.shutdown(); 
-        for (int i = 0; i < activeMetricsWindows.size(); i++) {
-            MetricsDisplayGUI metricsWindow = activeMetricsWindows.get(i);
-            metricsWindow.dispatchEvent(new WindowEvent(metricsWindow, WindowEvent.WINDOW_CLOSING));
-        }
-        activeMetricsWindows.clear();
-        startButton.setEnabled(true);   // Habilitar botón
-        stopButton.setEnabled(false); // Deshabilitar botón
-        log("Simulación detenida por el usuario.");
-    });
-    
-    addProcessButton.addActionListener(e -> addProcessDialog());
-    
-    algorithmComboBox.addActionListener((e) -> {
-        SchedulingAlgorithm selected = (SchedulingAlgorithm) algorithmComboBox.getSelectedItem();
-        if (selected != null) {
-            scheduler.setSchedulingAlgorithm(selected); 
-            log("Algoritmo cambiado a: " + selected);
-        }
-    });
-    
-    cycleDurationSpinner.addChangeListener((e) -> {
-        int newDurationValue = (Integer) cycleDurationSpinner.getValue();
-        String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
-        int newDurationMs;
+        startButton.addActionListener((e) -> {
+            scheduler.start(); 
+            simulationTimer.start(); 
 
-        if ("s".equals(selectedUnit)) {
-            newDurationMs = newDurationValue * 1000;
-        } else {
-            newDurationMs = newDurationValue;
-        }
+            startButton.setEnabled(false); // Deshabilitar botón
+            stopButton.setEnabled(true);   // Habilitar botón
+            log("Simulación iniciada.");
+        });
 
-        if (newDurationMs > 0) {
-            scheduler.setCycleDuration(newDurationMs); 
-            log("Duración del ciclo cambiada a: " + newDurationValue + " " + selectedUnit);
-        }
-    });
-
-    timeUnitComboBox.addActionListener((e) -> {
-        int newDurationValue = (Integer) cycleDurationSpinner.getValue();
-        String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
-        int newDurationMs;
-
-        if ("s".equals(selectedUnit)) {
-            newDurationMs = newDurationValue * 1000;
-        } else {
-            newDurationMs = newDurationValue;
-        }
-
-        if (newDurationMs > 0) {
-            scheduler.setCycleDuration(newDurationMs); 
-            log("Duración del ciclo cambiada a: " + newDurationValue + " " + selectedUnit);
-        }
-    });
-        
-    openGraphsButton.addActionListener(e -> {
-        MetricsDisplayGUI graphsWindow = new MetricsDisplayGUI("Gráficos de Rendimiento", "Gráficos", this);
-        activeMetricsWindows.add(graphsWindow);
-        graphsWindow.setVisible(true);
-    });
-
-    openExtendedQueuesButton.addActionListener(e -> {
-        MetricsDisplayGUI queuesWindow = new MetricsDisplayGUI("Vistas Extendidas de Colas", "Colas Extendidas", this);
-        activeMetricsWindows.add(queuesWindow);
-        queuesWindow.setVisible(true);
-    });
-
-    stopButton.setEnabled(false);
-
-    addWindowListener(new WindowAdapter() {
-        @Override
-        public void windowClosing(WindowEvent e) {
-            if (simulationTimer != null) {
-                simulationTimer.stop();
+        stopButton.addActionListener((e) -> {
+            simulationTimer.stop(); 
+            scheduler.shutdown(); 
+            for (int i = 0; i < activeMetricsWindows.size(); i++) {
+                MetricsDisplayGUI metricsWindow = activeMetricsWindows.get(i);
+                metricsWindow.dispatchEvent(new WindowEvent(metricsWindow, WindowEvent.WINDOW_CLOSING));
             }
-            scheduler.shutdown();
-            System.exit(0); 
-        }
-    });
-}
+            activeMetricsWindows.clear();
+            startButton.setEnabled(true);   // Habilitar botón
+            stopButton.setEnabled(false); // Deshabilitar botón
+            log("Simulación detenida por el usuario.");
+        });
+
+        addProcessButton.addActionListener(e -> addProcessDialog());
+
+        algorithmComboBox.addActionListener((e) -> {
+            SchedulingAlgorithm selected = (SchedulingAlgorithm) algorithmComboBox.getSelectedItem();
+            if (selected != null) {
+                scheduler.setSchedulingAlgorithm(selected); 
+                log("Algoritmo cambiado a: " + selected);
+            }
+        });
+
+        javax.swing.event.ChangeListener spinnerListener = (e) -> {
+                int newDurationValue = (Integer) cycleDurationSpinner.getValue();
+                String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
+                int newDurationMs;
+
+                if ("s".equals(selectedUnit)) {
+                    newDurationMs = newDurationValue * 1000;
+                } else {
+                    newDurationMs = newDurationValue;
+                }
+
+                if (newDurationMs > 0) {
+                    scheduler.setCycleDuration(newDurationMs); 
+                    log("Duración del ciclo cambiada a: " + newDurationValue + " " + selectedUnit);
+                }
+            };
+            cycleDurationSpinner.addChangeListener(spinnerListener); 
+            timeUnitComboBox.addActionListener((e) -> {
+                convertTimeUnits(spinnerListener);
+            });
+
+        openGraphsButton.addActionListener(e -> {
+            MetricsDisplayGUI graphsWindow = new MetricsDisplayGUI("Gráficos de Rendimiento", "Gráficos", this);
+            activeMetricsWindows.add(graphsWindow);
+            graphsWindow.setVisible(true);
+        });
+
+        openExtendedQueuesButton.addActionListener(e -> {
+            MetricsDisplayGUI queuesWindow = new MetricsDisplayGUI("Vistas Extendidas de Colas", "Colas Extendidas", this);
+            activeMetricsWindows.add(queuesWindow);
+            queuesWindow.setVisible(true);
+        });
+
+        stopButton.setEnabled(false);
+
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                if (simulationTimer != null) {
+                    simulationTimer.stop();
+                }
+                scheduler.shutdown();
+                System.exit(0); 
+            }
+        });
+    }
     
     private void addProcessDialog() {
+        // --- Componentes del diálogo ---
         JTextField nameField = new JTextField("Process_" + processCounter);
         JComboBox<ProcessType> typeCombo = new JComboBox<>(ProcessType.values());
-
         JSpinner instructionsSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 50, 5));
+        
+        // --- Componentes de Excepción (ahora variables locales) ---
+        JLabel exceptionLabel = new JLabel("Ciclos para Excepción:");
         JSpinner exceptionSpinner = new JSpinner(new SpinnerNumberModel(4, 2, 10, 1));
-        JSpinner completionSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 5, 1));
+        JLabel completionLabel = new JLabel("Ciclos para Completar Excepción:");
+        JSpinner completionSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 999, 1)); // Límite corregido
+        // ---
+        
         JSpinner prioritySpinner = new JSpinner(new SpinnerNumberModel(2, 1, 3, 1));
         JSpinner memorySpinner = new JSpinner(new SpinnerNumberModel(64, 16, 256, 16));
 
-        JPanel panel = new JPanel(new GridLayout(7, 2));
+        // --- Panel del diálogo ---
+        JPanel panel = new JPanel(new GridLayout(7, 2, 5, 5)); // GridLayout con espacio vertical
         panel.add(new JLabel("Nombre:"));
         panel.add(nameField);
         panel.add(new JLabel("Tipo:"));
         panel.add(typeCombo);
         panel.add(new JLabel("Instrucciones:"));
         panel.add(instructionsSpinner);
-        panel.add(new JLabel("Ciclos para Excepción:"));
+        
+        // --- Añadir componentes de excepción al panel ---
+        panel.add(exceptionLabel);
         panel.add(exceptionSpinner);
-        panel.add(new JLabel("Ciclos para Completar Excepción:"));
+        panel.add(completionLabel);
         panel.add(completionSpinner);
+        // ---
+        
         panel.add(new JLabel("Prioridad (1=Alta, 3=Baja):"));
         panel.add(prioritySpinner);
         panel.add(new JLabel("Tamaño de Memoria (MB):"));
         panel.add(memorySpinner);
 
+        // --- LÓGICA PARA OCULTAR/MOSTRAR ---
+        // Función auxiliar para actualizar la visibilidad
+        Runnable updateVisibility = () -> {
+            boolean isIOBound = (typeCombo.getSelectedItem() == ProcessType.IO_BOUND);
+            exceptionLabel.setVisible(isIOBound);
+            exceptionSpinner.setVisible(isIOBound);
+            completionLabel.setVisible(isIOBound);
+            completionSpinner.setVisible(isIOBound);
+            
+            // Reajustar el tamaño del diálogo si los componentes se ocultan/muestran
+            Window window = SwingUtilities.getWindowAncestor(panel);
+            if (window != null) {
+                window.pack(); // Ajusta el tamaño al contenido
+            }
+        };
+
+        // Añadir el ActionListener al ComboBox
+        typeCombo.addActionListener(e -> updateVisibility.run());
+        
+        // Ejecutar una vez al inicio para establecer el estado inicial correcto
+        updateVisibility.run(); 
+        // --- FIN DE LÓGICA ---
+
+        // --- Mostrar el diálogo ---
         int result = JOptionPane.showConfirmDialog(this, panel, "Agregar Proceso", 
-                                                  JOptionPane.OK_CANCEL_OPTION);
+                                                  JOptionPane.OK_CANCEL_OPTION, 
+                                                  JOptionPane.PLAIN_MESSAGE); // Usar PLAIN_MESSAGE sin icono
+
+        // --- Procesar resultado ---
         if (result == JOptionPane.OK_OPTION) {
             String name = nameField.getText();
             ProcessType type = (ProcessType) typeCombo.getSelectedItem();
             int instructions = (Integer) instructionsSpinner.getValue();
-            int exceptionCycles = (Integer) exceptionSpinner.getValue();
-            int completionCycles = (Integer) completionSpinner.getValue();
             int priority = (Integer) prioritySpinner.getValue();
             int memorySize = (Integer) memorySpinner.getValue();
+            
+            // --- Obtener valores de excepción SÓLO si es IO_BOUND ---
+            int exceptionCycles = 0;
+            int completionCycles = 0;
+            if (type == ProcessType.IO_BOUND) {
+                exceptionCycles = (Integer) exceptionSpinner.getValue();
+                completionCycles = (Integer) completionSpinner.getValue();
+            }
+            // ---
 
             PCB process = new PCB(name, type, instructions, exceptionCycles, completionCycles, priority , memorySize, scheduler);
             scheduler.addProcess(process);
@@ -422,7 +456,8 @@ private void setupEventHandlers() {
             updateTableFromCustomList(newQueueTable, scheduler.getNewQueueSnapshot());
             updateTable(readyQueueTable, scheduler.getReadyQueueSnapshot());
             updateTableFromCustomList(blockedQueueTable, scheduler.getBlockedQueueSnapshot());
-            updateTableFromCustomList(suspendedQueueTable, scheduler.getSuspendedQueueSnapshot());
+            updateTableFromCustomList(blockedSuspendedQueueTable, scheduler.getBlockedSuspendedQueueSnapshot());
+            updateTableFromCustomList(readySuspendedQueueTable, scheduler.getReadySuspendedQueueSnapshot());
             updateTableFromCustomList(terminatedTable, scheduler.getTerminatedQueueSnapshot());
             
             if (osRunning) {
@@ -469,6 +504,46 @@ private void setupEventHandlers() {
                 });
             }
         }
+    }
+    
+    private void convertTimeUnits(javax.swing.event.ChangeListener spinnerListener) {
+        cycleDurationSpinner.removeChangeListener(spinnerListener);
+
+        int currentValue = (Integer) cycleDurationSpinner.getValue();
+        String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
+        SpinnerNumberModel model = (SpinnerNumberModel) cycleDurationSpinner.getModel();
+        int newValue;
+
+        if ("s".equals(selectedUnit)) {
+            newValue = Math.max(1, currentValue / 1000);
+            model.setMinimum(1);
+            model.setMaximum(10);
+            model.setStepSize(1);
+            if (newValue > 10) {
+                newValue = 10; 
+            }
+        } else {
+            newValue = currentValue * 1000;
+            model.setMinimum(100);
+            model.setMaximum(10000);
+            model.setStepSize(100);
+            if (newValue > 10000) {
+                newValue = 10000; 
+            }
+            if (newValue < 100) {
+                newValue = 100;
+            }
+        }
+
+        model.setValue(newValue);
+        cycleDurationSpinner.addChangeListener(spinnerListener);
+
+        int newDurationMs = (int) model.getValue();
+        if ("s".equals(selectedUnit)) {
+            newDurationMs *= 1000;
+        }
+        scheduler.setCycleDuration(newDurationMs);
+        log("Unidad de ciclo cambiada a: " + model.getValue() + " " + selectedUnit);
     }
     
     private void log(String message) {

@@ -155,13 +155,21 @@ public class ProcessHeap {
                 result = Integer.compare(p1.getRemainingInstructions(), p2.getRemainingInstructions());
                 break;
             case RR:
-                result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
+                result = Long.compare(p1.getLastReadyQueueTime(), p2.getLastReadyQueueTime());
                 break;
             case PRIORITY:
                 result = Integer.compare(p1.getPriority(), p2.getPriority());
                 break;
             case MLFQ:
                 result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
+                break;
+            case HRRN:
+                double s1 = Math.max(1.0, p1.getServiceTime());
+                double ratioP1 = (p1.getWaitingTime() + s1) / s1;
+
+                double s2 = Math.max(1.0, p2.getServiceTime());
+                double ratioP2 = (p2.getWaitingTime() + s2) / s2;
+                result = Double.compare(ratioP2, ratioP1); 
                 break;
             default:
                 result = 0; 

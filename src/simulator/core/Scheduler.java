@@ -28,7 +28,8 @@ public class Scheduler implements Runnable { //
     // Colas de procesos 
     private ProcessHeap readyQueue;
     private final CustomList<PCB> blockedQueue;
-    private final CustomList<PCB> suspendedQueue;
+    private final CustomList<PCB> blockedSuspendedQueue; 
+    private final CustomList<PCB> readySuspendedQueue;
     private final CustomList<PCB> terminatedProcesses;
     private final CustomList<PCB> newQueue;
     private int maxMultiprogrammingLevel = 5; 
@@ -45,13 +46,15 @@ public class Scheduler implements Runnable { //
     private volatile int cycleDuration = 1000;
     private final int totalMemory;
     private int usedMemory;
+    private PCB justSuspended = null;
     
     private Thread simulationThread;
     private ExceptionHandlerThread exceptionHandlerThread;
 
     private volatile Object[] readyQueueCache = new Object[0];
     private volatile CustomList<PCB> blockedQueueCache = new CustomList<>();
-    private volatile CustomList<PCB> suspendedQueueCache = new CustomList<>();
+    private volatile CustomList<PCB> blockedSuspendedQueueCache = new CustomList<>();
+    private volatile CustomList<PCB> readySuspendedQueueCache = new CustomList<>();
     private volatile CustomList<PCB> terminatedQueueCache = new CustomList<>();
     private volatile CustomList<PCB> newQueueCache = new CustomList<>();
     
@@ -75,7 +78,8 @@ public class Scheduler implements Runnable { //
         this.usedMemory = 0;
         this.readyQueue = new ProcessHeap(100, config.getStartAlgorithm()); 
         this.blockedQueue = new CustomList<>();
-        this.suspendedQueue = new CustomList<>();
+        this.blockedSuspendedQueue = new CustomList<>();
+        this.readySuspendedQueue = new CustomList<>();
         this.terminatedProcesses = new CustomList<>();
         this.currentAlgorithm = config.getStartAlgorithm(); 
         this.timeQuantum = 4;
@@ -91,6 +95,8 @@ public class Scheduler implements Runnable { //
         this.cpuUsageHistoryCache = new CustomList<>();
         this.globalCycleHistoryCache = new CustomList<>();
         this.terminatedHistoryCache = new CustomList<>();
+        this.blockedSuspendedQueueCache = new CustomList<>();
+        this.readySuspendedQueueCache = new CustomList<>();
     }
     
     /**
@@ -181,11 +187,12 @@ public class Scheduler implements Runnable { //
             cpuUsageHistory.add(this.isCpuIdle ? 0 : 1);
             terminatedHistory.add(terminatedProcesses.size());
             
+            resumeSuspendedProcesses();
             longTermScheduler();
             mediumTermScheduler();
             
             this.isCpuIdle = (currentProcess == null);
-            updateSuspendedProcesses();
+            
             
             if (currentProcess == null || currentProcess.getState() != ProcessState.RUNNING || 
                 (currentAlgorithm == SchedulingAlgorithm.RR && currentQuantum >= timeQuantum)) {
@@ -198,6 +205,7 @@ public class Scheduler implements Runnable { //
             
             updateMetrics();
             updateGUICache();
+            this.justSuspended = null;
             
         } finally {
             mutex.unlock();
@@ -225,15 +233,30 @@ public class Scheduler implements Runnable { //
     public void unblockProcess(PCB process) {
         mutex.lock();
         try {
-            boolean removed = blockedQueue.remove(process);
-            if (removed) {
-                process.setState(ProcessState.READY);
-                readyQueue.insert(process);
-            }
-
-            this.readyQueueCache = readyQueue.toArray();
-            this.blockedQueueCache = createSnapshot(blockedQueue);
+            boolean removedFromBlocked = blockedQueue.remove(process);
             
+            if (removedFromBlocked) {
+                process.setState(ProcessState.READY);
+                process.setLastReadyQueueTime(globalCycle);
+                readyQueue.insert(process);
+                
+                this.readyQueueCache = readyQueue.toArray();
+                this.blockedQueueCache = createSnapshot(blockedQueue);
+                
+            } else {
+                boolean removedFromSuspended = blockedSuspendedQueue.remove(process);
+                
+                if (removedFromSuspended) {
+                    process.setState(ProcessState.SUSPENDED); 
+                    readySuspendedQueue.add(process); 
+                    
+                    this.blockedSuspendedQueueCache = createSnapshot(blockedSuspendedQueue);
+                    this.readySuspendedQueueCache = createSnapshot(readySuspendedQueue);
+                    System.out.println("Kernel: E/S de " + process.getName() + " terminó (en Suspensión). Moviendo a Ready, Suspended.");
+                } else {
+                    System.err.println("WARN: unblockProcess no encontró a " + process.getName() + " ni en BLOCKED ni en BLOCKED_SUSPENDED.");
+                }
+            }
         } finally {
             mutex.unlock();
         }
@@ -266,16 +289,20 @@ public class Scheduler implements Runnable { //
      * proceso de NEW a READY.
      */
     private void longTermScheduler() {
+        if (!readySuspendedQueue.isEmpty()) {
+            return; 
+        }
+        // ---
+
         if (!newQueue.isEmpty()) {
             PCB processToAdmit = newQueue.get(0);
-
             if (usedMemory + processToAdmit.getMemorySize() <= totalMemory) {
+                // ... (el resto del método es igual)
                 PCB process = newQueue.removeAt(0);
                 process.setState(ProcessState.READY);
+                process.setLastReadyQueueTime(globalCycle); 
                 readyQueue.insert(process);
-
                 usedMemory += process.getMemorySize();
-
                 System.out.println("LTS: Proceso " + process.getName() + " admitido a READY. (Memoria: " + usedMemory + "/" + totalMemory + ")");
             }
         }
@@ -285,32 +312,36 @@ public class Scheduler implements Runnable { //
     * Planificador de Mediano Plazo (Medium-Term Scheduler).
     * suspender un proceso para liberar memoria.
     */
-   private void mediumTermScheduler() {
-       if (newQueue.isEmpty() || blockedQueue.isEmpty()) {
-           return; 
-       }
+    private void mediumTermScheduler() {
+        if (newQueue.isEmpty()) {
+            return; 
+        }
 
-       PCB nextNewProcess = newQueue.get(0);
-       int availableMemory = totalMemory - usedMemory;
+        PCB nextNewProcess = newQueue.get(0);
+        int availableMemory = totalMemory - usedMemory;
 
-       if (nextNewProcess.getMemorySize() > availableMemory) {
+        if (nextNewProcess.getMemorySize() > availableMemory && !blockedQueue.isEmpty()) {
 
-           PCB processToSuspend = blockedQueue.removeAt(0);
-           processToSuspend.setState(ProcessState.SUSPENDED);
-           suspendedQueue.add(processToSuspend);
+            PCB processToSuspend = blockedQueue.removeAt(0);
+            this.blockedQueueCache = createSnapshot(blockedQueue);
 
-           usedMemory -= processToSuspend.getMemorySize();
+            processToSuspend.setState(ProcessState.SUSPENDED);
+            blockedSuspendedQueue.add(processToSuspend); 
+            this.justSuspended = processToSuspend;
+            this.justSuspended = processToSuspend;
 
-           System.out.println("MTS: Proceso " + processToSuspend.getName() + " SUSPENDIDO. (Memoria: " + usedMemory + "/" + totalMemory + ")");
+            usedMemory -= processToSuspend.getMemorySize();
 
-           this.blockedQueueCache = createSnapshot(blockedQueue);
-           this.suspendedQueueCache = createSnapshot(suspendedQueue);
-       }
-   }
+            System.out.println("MTS: Proceso " + processToSuspend.getName() + " SUSPENDIDO (desde BLOQUEADO). (Memoria: " + usedMemory + "/" + totalMemory + ")");
+
+            this.blockedSuspendedQueueCache = createSnapshot(blockedSuspendedQueue);
+        }
+    }
 
     private void scheduleNextProcess() {
         if (currentProcess != null && currentProcess.getState() == ProcessState.RUNNING) {
             currentProcess.setState(ProcessState.READY);
+            currentProcess.setLastReadyQueueTime(globalCycle);
             readyQueue.insert(currentProcess);
         }
         
@@ -323,6 +354,7 @@ public class Scheduler implements Runnable { //
             }
         } else {
             currentProcess = null;
+            this.isCpuIdle = true;
         }
     }
     
@@ -339,9 +371,11 @@ public class Scheduler implements Runnable { //
             usedMemory -= currentProcess.getMemorySize(); 
             System.out.println("Kernel: Proceso " + currentProcess.getName() + " TERMINADO. (Memoria: " + usedMemory + "/" + totalMemory + ")");
             currentProcess = null;
+            this.isCpuIdle = true;
         } else if (currentProcess.getState() == ProcessState.BLOCKED) {
             blockedQueue.add(currentProcess);
             currentProcess = null;
+            this.isCpuIdle = true;
         }
     }
     
@@ -355,23 +389,25 @@ public class Scheduler implements Runnable { //
         }
     }
     
-    private void updateSuspendedProcesses() {
-        if (suspendedQueue.isEmpty()) {
-            return;
+    private void resumeSuspendedProcesses() {
+        if (readySuspendedQueue.isEmpty()) {
+            return; 
         }
 
-        PCB processToResume = suspendedQueue.get(0);
+        PCB processToResume = readySuspendedQueue.get(0);
 
         if (usedMemory + processToResume.getMemorySize() <= totalMemory) {
-            suspendedQueue.removeAt(0); 
+            readySuspendedQueue.removeAt(0); 
+            
             processToResume.setState(ProcessState.READY);
+            processToResume.setLastReadyQueueTime(globalCycle);
             readyQueue.insert(processToResume);
-
+            
             usedMemory += processToResume.getMemorySize();
-
+            
             System.out.println("MTS: Proceso " + processToResume.getName() + " REANUDADO a READY. (Memoria: " + usedMemory + "/" + totalMemory + ")");
 
-            this.suspendedQueueCache = createSnapshot(suspendedQueue);
+            this.readySuspendedQueueCache = createSnapshot(readySuspendedQueue);
         }
     }
 
@@ -379,7 +415,8 @@ public class Scheduler implements Runnable { //
         this.newQueueCache = createSnapshot(newQueue);
         this.readyQueueCache = readyQueue.toArray();
         this.blockedQueueCache = createSnapshot(blockedQueue);
-        this.suspendedQueueCache = createSnapshot(suspendedQueue);
+        this.blockedSuspendedQueueCache = createSnapshot(blockedSuspendedQueue);
+        this.readySuspendedQueueCache = createSnapshot(readySuspendedQueue);
         this.terminatedQueueCache = createSnapshot(terminatedProcesses);
         this.cpuUsageHistoryCache = createSnapshot(cpuUsageHistory);
         this.globalCycleHistoryCache = createSnapshot(globalCycleHistory);
@@ -399,8 +436,12 @@ public class Scheduler implements Runnable { //
         return blockedQueueCache; 
     }
 
-    public CustomList<PCB> getSuspendedQueueSnapshot() {
-        return suspendedQueueCache; 
+    public CustomList<PCB> getBlockedSuspendedQueueSnapshot() {
+        return blockedSuspendedQueueCache;
+    }
+    
+    public CustomList<PCB> getReadySuspendedQueueSnapshot() {
+        return readySuspendedQueueCache;
     }
 
     public CustomList<PCB> getTerminatedQueueSnapshot() {
@@ -440,7 +481,7 @@ public class Scheduler implements Runnable { //
             long elapsedTime = (System.currentTimeMillis() - startTime) / 1000;
             double throughput = elapsedTime > 0 ? (double) completedProcesses / elapsedTime : 0;
             double cpuUtilization = globalCycle > 0 ? (double) totalCpuBusyTime / globalCycle : 0;
-            int totalProcesses = completedProcesses + readyQueue.size() + blockedQueue.size() + suspendedQueue.size();
+            int totalProcesses = completedProcesses + readyQueue.size() + blockedQueue.size() + blockedSuspendedQueue.size() + readySuspendedQueue.size();
             if (currentProcess != null) totalProcesses++;
             double avgWaitTime = totalProcesses > 0 ? (double) totalWaitTime / totalProcesses : 0;
             double avgResponseTime = completedProcesses > 0 ? (double) totalResponseTime / completedProcesses : 0;
