@@ -339,7 +339,7 @@ private void setupEventHandlers() {
             newDuration *= 1000;
         }
         if (newDuration > 0) {
-            scheduler.setCycleDuration(newDuration);
+            scheduler.setCycleDuration(newDuration); 
             log("Duración del ciclo cambiada a: " + cycleDurationSpinner.getValue() + " " + timeUnitComboBox.getSelectedItem());
         }
     });

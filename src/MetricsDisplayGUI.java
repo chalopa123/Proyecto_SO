@@ -28,6 +28,7 @@ public class MetricsDisplayGUI extends JFrame {
     private CpuUsageGraphPanel cpuGraphPanel; // Panel para el gráfico de CPU
     private JTable detailedReadyTable;        // Tabla para la cola de listos
     private DefaultTableModel readyTableModel;  // Modelo de la tabla de listos
+    private TerminatedGraphPanel termGraphPanel;
 
     public MetricsDisplayGUI(String title, String type, SimulationGUI mainGUI) {
         super(title);
@@ -64,9 +65,8 @@ public class MetricsDisplayGUI extends JFrame {
             
             // 2. Pestaña de Procesos Terminados (Placeholder)
             // (Puedes implementar esto después si quieres, similar a la tabla de listos)
-            JPanel terminatedProcessesPanel = new JPanel();
-            terminatedProcessesPanel.add(new JLabel("Aquí irá el gráfico de Procesos Terminados"));
-            tabbedPane.addTab("Terminados", terminatedProcessesPanel);
+            termGraphPanel = new TerminatedGraphPanel(); // <-- CREAR EL NUEVO PANEL
+            tabbedPane.addTab("Procesos Terminados", termGraphPanel);
             
         } else if ("Colas Extendidas".equals(windowType)) {
             // --- LÓGICA DE TABLA IMPLEMENTADA ---
@@ -98,6 +98,7 @@ public class MetricsDisplayGUI extends JFrame {
         } else if ("Colas Extendidas".equals(windowType)) {
             // Llama al método de la tabla de listos
             updateDetailedReadyQueueTable(scheduler.getReadyQueueSnapshot());
+            updateTerminatedGraph(scheduler.getTerminatedHistory());
         }
     }
 
@@ -108,6 +109,12 @@ public class MetricsDisplayGUI extends JFrame {
     private void updateCpuUsageGraph(CustomList<Integer> data) {
         if (cpuGraphPanel != null) {
             cpuGraphPanel.updateData(data); // Pasa los datos al panel para que se redibuje
+        }
+    }
+    
+    private void updateTerminatedGraph(CustomList<Integer> data) {
+        if (termGraphPanel != null) {
+            termGraphPanel.updateData(data); // Pasa los datos al panel
         }
     }
 
