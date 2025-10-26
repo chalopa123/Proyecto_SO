@@ -25,12 +25,7 @@ public class ProcessSchedulerSimulator {
         }
         
         // Iniciar la interfaz gráfica
-        javax.swing.SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                createAndShowGUI();
-            }
-        });
+        javax.swing.SwingUtilities.invokeLater(ProcessSchedulerSimulator::createAndShowGUI);
     }
     
     private static void createAndShowGUI() {
