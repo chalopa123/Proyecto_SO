@@ -142,17 +142,27 @@ public class ProcessHeap {
         
         int result;
         switch (algorithm) {
-            case FCFS -> result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
-            case SJF -> result = Integer.compare(p1.getTotalInstructions(), p2.getTotalInstructions());
-            case SRTF -> result = Integer.compare(p1.getRemainingInstructions(), p2.getRemainingInstructions());
-            case RR -> result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
-            case PRIORITY -> {
-                int p1Priority = (p1.getType() == ProcessType.IO_BOUND) ? 1 : 2;
-                int p2Priority = (p2.getType() == ProcessType.IO_BOUND) ? 1 : 2;
-                result = Integer.compare(p1Priority, p2Priority);
-            }
-            case MLFQ -> result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
-            default -> result = 0; // Caso por defecto
+            case FCFS:
+                result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
+                break;
+            case SJF:
+                result = Integer.compare(p1.getTotalInstructions(), p2.getTotalInstructions());
+                break;
+            case SRTF:
+                result = Integer.compare(p1.getRemainingInstructions(), p2.getRemainingInstructions());
+                break;
+            case RR:
+                result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
+                break;
+            case PRIORITY:
+                result = Integer.compare(p1.getPriority(), p2.getPriority());
+                break;
+            case MLFQ:
+                result = Long.compare(p1.getCreationTime(), p2.getCreationTime());
+                break;
+            default:
+                result = 0; // Caso por defecto
+                break;
         }
         
         return isMinHeap ? result : -result;

@@ -31,16 +31,24 @@ public class SimulationGUI extends JFrame {
     private JLabel currentProcessLabel;
     private JLabel cpuStateLabel;
     private JLabel algorithmLabel;
+    private JTable newQueueTable;
     private JTable readyQueueTable;
     private JTable blockedQueueTable;
     private JTable suspendedQueueTable;
     private JTable terminatedTable;
     private JTextArea logArea;
+    private CustomList<MetricsDisplayGUI> activeMetricsWindows;
     private JComboBox<SchedulingAlgorithm> algorithmComboBox;
     private JSpinner cycleDurationSpinner;
+    private JComboBox<String> timeUnitComboBox;
     private JButton startButton;
     private JButton stopButton;
     private JButton addProcessButton;
+    private JButton saveCycleButton;
+    private JButton loadCycleButton;
+    private JButton openGraphsButton;
+    private JButton openExtendedQueuesButton;
+    private int processCounter = 1;
     
     // Componentes de métricas (asegúrate de que estén declarados)
     private JLabel throughputLabel;
@@ -49,11 +57,25 @@ public class SimulationGUI extends JFrame {
     private JLabel avgResponseTimeLabel;
 
 
-    public SimulationGUI() {
-        this.scheduler = new Scheduler();
-        initializeGUI(); // Este método debe inicializar los JLabels de métricas
+    public SimulationGUI(Scheduler scheduler, SimulationConfig config) {
+        this.scheduler = scheduler; // Se recibe
+        this.activeMetricsWindows = new CustomList<>();
+
+        initializeGUI();
         setupEventHandlers();
-        cycleDurationSpinner.setValue(1000);
+
+        // --- APLICAR CONFIGURACIÓN INICIAL ---
+        int durationMs = config.getInitialCycleDuration();
+        if (durationMs >= 1000 && durationMs % 1000 == 0) {
+            timeUnitComboBox.setSelectedItem("s");
+            cycleDurationSpinner.setValue(durationMs / 1000);
+        } else {
+            timeUnitComboBox.setSelectedItem("ms");
+            cycleDurationSpinner.setValue(durationMs);
+        }
+
+        // Aplicar algoritmo
+        algorithmComboBox.setSelectedItem(config.getStartAlgorithm());
     }
     
     private void initializeGUI() {
@@ -96,7 +118,7 @@ public class SimulationGUI extends JFrame {
         
         currentCycleLabel = new JLabel("0");
         currentProcessLabel = new JLabel("Ninguno");
-        cpuStateLabel = new JLabel("Sistema Operativo");
+        cpuStateLabel = new JLabel("Modo Kernel");
         algorithmLabel = new JLabel("FCFS");
         
         // Agregar etiquetas y valores en pares
@@ -115,11 +137,16 @@ public class SimulationGUI extends JFrame {
     }
     
     private JPanel createCenterPanel() {
-        JPanel panel = new JPanel(new GridLayout(2, 2, 5, 5));
+        // Cambiamos el GridLayout de 2x2 a 3x2
+        JPanel panel = new JPanel(new GridLayout(3, 2, 5, 5));
         
+        newQueueTable = createProcessTable();
+        JScrollPane newScroll = new JScrollPane(newQueueTable);
+        newScroll.setBorder(BorderFactory.createTitledBorder("Cola de Nuevos (NEW)"));
+
         readyQueueTable = createProcessTable();
         JScrollPane readyScroll = new JScrollPane(readyQueueTable);
-        readyScroll.setBorder(BorderFactory.createTitledBorder("Cola de Listos"));
+        readyScroll.setBorder(BorderFactory.createTitledBorder("Cola de Listos (READY)"));
         
         blockedQueueTable = createProcessTable();
         JScrollPane blockedScroll = new JScrollPane(blockedQueueTable);
@@ -133,10 +160,13 @@ public class SimulationGUI extends JFrame {
         JScrollPane terminatedScroll = new JScrollPane(terminatedTable);
         terminatedScroll.setBorder(BorderFactory.createTitledBorder("Procesos Terminados"));
         
-        panel.add(readyScroll);
-        panel.add(blockedScroll);
-        panel.add(suspendedScroll);
-        panel.add(terminatedScroll);
+        // Añadimos las tablas en el nuevo orden
+        panel.add(newScroll);       // (Fila 1, Col 1)
+        panel.add(readyScroll);     // (Fila 1, Col 2)
+        panel.add(blockedScroll);   // (Fila 2, Col 1)
+        panel.add(suspendedScroll); // (Fila 2, Col 2)
+        panel.add(terminatedScroll);// (Fila 3, Col 1)
+        // (El sexto slot, Fila 3 Col 2, quedará vacío)
         
         return panel;
     }
@@ -151,8 +181,11 @@ public class SimulationGUI extends JFrame {
         controlPanel.add(algorithmComboBox);
         
         cycleDurationSpinner = new JSpinner(new SpinnerNumberModel(1000, 100, 5000, 100));
-        controlPanel.add(new JLabel("Duración Ciclo (ms):"));
+        controlPanel.add(new JLabel("Duración Ciclo:"));
         controlPanel.add(cycleDurationSpinner);
+        
+        timeUnitComboBox = new JComboBox<>(new String[]{"ms", "s"});
+        controlPanel.add(timeUnitComboBox);
         
         startButton = new JButton("Iniciar");
         stopButton = new JButton("Detener");
@@ -161,6 +194,11 @@ public class SimulationGUI extends JFrame {
         controlPanel.add(startButton);
         controlPanel.add(stopButton);
         controlPanel.add(addProcessButton);
+        openGraphsButton = new JButton("Abrir Gráficos");
+        controlPanel.add(openGraphsButton);
+
+        openExtendedQueuesButton = new JButton("Abrir Colas Ext.");
+        controlPanel.add(openExtendedQueuesButton);
         
         logArea = new JTextArea(10, 80);
         logArea.setEditable(false);
@@ -169,12 +207,52 @@ public class SimulationGUI extends JFrame {
         
         panel.add(controlPanel, BorderLayout.NORTH);
         panel.add(logScroll, BorderLayout.CENTER);
+
+        // --- AÑADIR ESTAS LÍNEAS ---
+        JTextArea algorithmArea = new JTextArea(5, 80);
+        algorithmArea.setEditable(false);
+        algorithmArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        
+        // Obtenemos los algoritmos del Enum
+        StringBuilder algoText = new StringBuilder("Tipos de Algoritmos de Planificación:\n");
+        for (SchedulingAlgorithm alg : SchedulingAlgorithm.values()) { //
+            switch (alg) {
+                case FCFS:
+                    algoText.append("FCFS:     First Come First Served\n");
+                    break;
+                case SJF:
+                    algoText.append("SJF:      Shortest Job First\n");
+                    break;
+                case RR:
+                    algoText.append("RR:       Round Robin\n");
+                    break;
+                case PRIORITY:
+                    algoText.append("PRIORITY: Planificación por Prioridad (Estática)\n");
+                    break;
+                case SRTF:
+                    algoText.append("SRTF:     Shortest Remaining Time First\n");
+                    break;
+                case MLFQ:
+                    algoText.append("MLFQ:     Multi-Level Feedback Queue\n");
+                    break;
+                case HRRN:
+                    algoText.append("HRRN:     Highest Response Ratio Next\n");
+                    break;
+            }
+        }
+        algorithmArea.setText(algoText.toString());
+        
+        JScrollPane algorithmScroll = new JScrollPane(algorithmArea);
+        algorithmScroll.setBorder(BorderFactory.createTitledBorder("Leyenda de Algoritmos"));
+        
+        panel.add(algorithmScroll, BorderLayout.SOUTH);
         
         return panel;
     }
     
     private JTable createProcessTable() {
-        String[] columnNames = {"ID", "Nombre", "Estado", "PC", "MAR", "Instrucciones Restantes", "Tipo"};
+        String[] columnNames = {"ID", "Nombre", "Estado", "PC", "MAR", "Instrucciones Restantes", "Tipo", "Prioridad",
+                                "Memoria (MB)"};
         DefaultTableModel model = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -214,7 +292,11 @@ private void setupEventHandlers() {
     stopButton.addActionListener((e) -> {
         simulationTimer.stop(); // Detiene el refresco de la GUI
         scheduler.shutdown(); // Detiene el hilo de simulación
-        
+        for (int i = 0; i < activeMetricsWindows.size(); i++) {
+            MetricsDisplayGUI metricsWindow = activeMetricsWindows.get(i);
+            metricsWindow.dispatchEvent(new WindowEvent(metricsWindow, WindowEvent.WINDOW_CLOSING));
+        }
+        activeMetricsWindows.clear();
         startButton.setEnabled(true);   // Habilitar botón
         stopButton.setEnabled(false); // Deshabilitar botón
         log("Simulación detenida por el usuario.");
@@ -231,12 +313,52 @@ private void setupEventHandlers() {
     });
     
     cycleDurationSpinner.addChangeListener((e) -> {
-        int newDuration = (Integer) cycleDurationSpinner.getValue();
-        if (newDuration > 0) {
-            // Envía la nueva duración al Scheduler, que la usará en su Thread.sleep()
-            scheduler.setCycleDuration(newDuration); 
-            log("Duración del ciclo cambiada a: " + newDuration + " ms");
+        int newDurationValue = (Integer) cycleDurationSpinner.getValue();
+        String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
+        int newDurationMs;
+
+        if ("s".equals(selectedUnit)) {
+            newDurationMs = newDurationValue * 1000;
+        } else {
+            newDurationMs = newDurationValue;
         }
+
+        if (newDurationMs > 0) {
+            scheduler.setCycleDuration(newDurationMs); 
+            log("Duración del ciclo cambiada a: " + newDurationValue + " " + selectedUnit);
+        }
+    });
+
+    // 2. Crear un ActionListener simple para el COMBOBOX
+    timeUnitComboBox.addActionListener((e) -> {
+        // Simplemente re-ejecuta la misma lógica que el spinner
+        // para actualizar la duración
+        int newDurationValue = (Integer) cycleDurationSpinner.getValue();
+        String selectedUnit = (String) timeUnitComboBox.getSelectedItem();
+        int newDurationMs;
+
+        if ("s".equals(selectedUnit)) {
+            newDurationMs = newDurationValue * 1000;
+        } else {
+            newDurationMs = newDurationValue;
+        }
+
+        if (newDurationMs > 0) {
+            scheduler.setCycleDuration(newDurationMs); 
+            log("Duración del ciclo cambiada a: " + newDurationValue + " " + selectedUnit);
+        }
+    });
+        
+    openGraphsButton.addActionListener(e -> {
+        MetricsDisplayGUI graphsWindow = new MetricsDisplayGUI("Gráficos de Rendimiento", "Gráficos", this);
+        activeMetricsWindows.add(graphsWindow);
+        graphsWindow.setVisible(true);
+    });
+
+    openExtendedQueuesButton.addActionListener(e -> {
+        MetricsDisplayGUI queuesWindow = new MetricsDisplayGUI("Vistas Extendidas de Colas", "Colas Extendidas", this);
+        activeMetricsWindows.add(queuesWindow);
+        queuesWindow.setVisible(true);
     });
     
     // 4. Estado inicial de los botones
@@ -266,15 +388,17 @@ private void setupEventHandlers() {
     }
     
     private void addProcessDialog() {
-        JTextField nameField = new JTextField("Process_" + System.currentTimeMillis());
+        JTextField nameField = new JTextField("Process_" + processCounter);
         JComboBox<ProcessType> typeCombo = new JComboBox<>(ProcessType.values());
 
         // VALORES MEJORADOS PARA TESTING:
         JSpinner instructionsSpinner = new JSpinner(new SpinnerNumberModel(15, 5, 50, 5));
         JSpinner exceptionSpinner = new JSpinner(new SpinnerNumberModel(4, 2, 10, 1));
         JSpinner completionSpinner = new JSpinner(new SpinnerNumberModel(3, 1, 5, 1));
+        JSpinner prioritySpinner = new JSpinner(new SpinnerNumberModel(2, 1, 3, 1));
+        JSpinner memorySpinner = new JSpinner(new SpinnerNumberModel(64, 16, 256, 16));
 
-        JPanel panel = new JPanel(new GridLayout(5, 2));
+        JPanel panel = new JPanel(new GridLayout(7, 2));
         panel.add(new JLabel("Nombre:"));
         panel.add(nameField);
         panel.add(new JLabel("Tipo:"));
@@ -285,6 +409,10 @@ private void setupEventHandlers() {
         panel.add(exceptionSpinner);
         panel.add(new JLabel("Ciclos para Completar Excepción:"));
         panel.add(completionSpinner);
+        panel.add(new JLabel("Prioridad (1=Alta, 3=Baja):"));
+        panel.add(prioritySpinner);
+        panel.add(new JLabel("Tamaño de Memoria (MB):"));
+        panel.add(memorySpinner);
 
         int result = JOptionPane.showConfirmDialog(this, panel, "Agregar Proceso", 
                                                   JOptionPane.OK_CANCEL_OPTION);
@@ -294,10 +422,15 @@ private void setupEventHandlers() {
             int instructions = (Integer) instructionsSpinner.getValue();
             int exceptionCycles = (Integer) exceptionSpinner.getValue();
             int completionCycles = (Integer) completionSpinner.getValue();
+            int priority = (Integer) prioritySpinner.getValue();
+            int memorySize = (Integer) memorySpinner.getValue();
 
-            PCB process = new PCB(name, type, instructions, exceptionCycles, completionCycles, scheduler);
+            PCB process = new PCB(name, type, instructions, exceptionCycles, completionCycles, priority , memorySize, scheduler);
             scheduler.addProcess(process);
-            log("Nuevo proceso creado: " + name + " (" + type + ", " + instructions + " instrucciones)");
+            log("Nuevo proceso creado: " + name + " (" + type + ", " + instructions + " instrucciones, Prioridad: "+ priority + ")" );
+            log("Nuevo proceso " + name + " agregado a la cola NEW.");
+            updateGUI();
+            processCounter++;
         }
     }
 
@@ -324,14 +457,25 @@ private void setupEventHandlers() {
             
             currentCycleLabel.setText(String.valueOf(cycle));
             currentProcessLabel.setText(p != null ? p.getName() + " (ID: " + p.getId() + ")" : "Ninguno");
-            cpuStateLabel.setText(cpuIdle ? "Sistema Operativo" : "Proceso");
+            cpuStateLabel.setText(cpuIdle ? "Modo Kernel" : "Modo Usuario");
             algorithmLabel.setText(alg.toString());
             
             // Actualizar tablas usando los snapshots (que vienen del caché)
+            updateTableFromCustomList(newQueueTable, scheduler.getNewQueueSnapshot());
             updateTable(readyQueueTable, scheduler.getReadyQueueSnapshot());
             updateTableFromCustomList(blockedQueueTable, scheduler.getBlockedQueueSnapshot());
             updateTableFromCustomList(suspendedQueueTable, scheduler.getSuspendedQueueSnapshot());
             updateTableFromCustomList(terminatedTable, scheduler.getTerminatedQueueSnapshot());
+            
+            if (osRunning) {
+                // Usar un bucle for estándar para CustomList
+                for (int i = 0; i < activeMetricsWindows.size(); i++) {
+                    MetricsDisplayGUI metricsWindow = activeMetricsWindows.get(i);
+                    if (metricsWindow != null) {
+                        metricsWindow.updateDisplay(scheduler);
+                    }
+                }
+            }
             
             // Actualizar métricas
             throughputLabel.setText(String.format("%.2f proc/s", metrics.get("Throughput")));
@@ -347,12 +491,13 @@ private void setupEventHandlers() {
         
         // Es seguro iterar 'processList' porque es una copia (snapshot)
         for (int i = 0; i < processList.size(); i++) {
-            PCB p = processList.get(i);
-            model.addRow(new Object[]{
-                p.getId(), p.getName(), p.getState(), p.getProgramCounter(),
-                p.getMAR(), p.getRemainingInstructions(), p.getType()
-            });
-        }
+        PCB p = processList.get(i);
+        model.addRow(new Object[]{
+            p.getId(), p.getName(), p.getState(), p.getProgramCounter(),
+            p.getMAR(), p.getRemainingInstructions(), p.getType(),
+            p.getPriority(), p.getMemorySize()
+        });
+    }
     }
     
     private void updateTable(JTable table, Object[] processes) {
@@ -365,7 +510,8 @@ private void setupEventHandlers() {
                 PCB p = (PCB) obj;
                 model.addRow(new Object[]{
                     p.getId(), p.getName(), p.getState(), p.getProgramCounter(),
-                    p.getMAR(), p.getRemainingInstructions(), p.getType()
+                    p.getMAR(), p.getRemainingInstructions(), p.getType(),
+                    p.getPriority(), p.getMemorySize()
                 });
             }
         }
@@ -377,5 +523,9 @@ private void setupEventHandlers() {
             logArea.append("Ciclo " + scheduler.getGlobalCycleSnapshot() + ": " + message + "\n");
             logArea.setCaretPosition(logArea.getDocument().getLength());
         });
+    }
+    
+    public void removeMetricsWindow(MetricsDisplayGUI window) {
+        activeMetricsWindows.remove(window);
     }
 }

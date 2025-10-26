@@ -30,8 +30,8 @@ public class ProcessSchedulerSimulator {
     
     private static void createAndShowGUI() {
         // Crear y mostrar la ventana principal
-        SimulationGUI gui = new SimulationGUI();
-        gui.setVisible(true);
+        WelcomeGUI welcomeGui = new WelcomeGUI();
+        welcomeGui.setVisible(true);
         
         // Mensaje de bienvenida
         System.out.println("=========================================");

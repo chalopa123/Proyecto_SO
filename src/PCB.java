@@ -31,10 +31,13 @@ public class PCB implements Comparable<PCB> {
     private long turnaroundTime;
     private long responseTime;
     private final long creationTime;
+    private final int priority;
+    private final int memorySize;
     private final Scheduler scheduler;
     
     public PCB(String name, ProcessType type, int totalInstructions, 
-               int cyclesToException, int cyclesToCompleteException, Scheduler scheduler) {
+               int cyclesToException, int cyclesToCompleteException,
+               int priority, int memorySize, Scheduler scheduler) {
         this.id = ID_GENERATOR.getAndIncrement();
         this.name = name;
         this.type = type;
@@ -42,6 +45,8 @@ public class PCB implements Comparable<PCB> {
         this.remainingInstructions = totalInstructions;
         this.cyclesToException = cyclesToException;
         this.cyclesToCompleteException = cyclesToCompleteException;
+        this.priority = priority;
+        this.memorySize = memorySize;
         this.state = ProcessState.NEW;
         this.programCounter = 0;
         this.mar = 0;
@@ -73,9 +78,12 @@ public class PCB implements Comparable<PCB> {
     public long getResponseTime() { return responseTime; }
     public void setResponseTime(long responseTime) { this.responseTime = responseTime; }
     public long getCreationTime() { return creationTime; }
+    public int getPriority() { return priority; }
+    public int getMemorySize() { return memorySize; }
     
     /**
      * Lógica de ejecución con excepciones para ambos tipos de procesos
+     * @return 
      */
     public boolean executeInstruction() {
         if (remainingInstructions <= 0) {
@@ -129,7 +137,12 @@ public class PCB implements Comparable<PCB> {
                     int totalTime = cyclesToCompleteException * 100;
                     for (int i = 0; i < cyclesToCompleteException; i++) {
                         Thread.sleep(100); // Pequeños intervalos para mantener responsiva la UI
-                        System.out.println("Progreso excepción " + name + ": " + (i+1) + "/" + cyclesToCompleteException);
+
+                        // --- AÑADE ESTA LÍNEA ---
+                        setMAR(getMAR() + 1); // Simular acceso a memoria durante E/S
+                        // -----------------------
+
+                        System.out.println("Progreso excepción " + name + ": " + (i + 1) + "/" + cyclesToCompleteException);
                     }
                     
                     System.out.println("Operación de excepción completada para: " + name);
